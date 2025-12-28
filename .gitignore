@@ -41,5 +41,5 @@ env/
 .DS_Store
 Thumbs.db
 
-# Temporarily exclude auth_repo.py (Droid Shield issue)
+# auth_repo.py (Droid Shield - commit manually)
 app/repositories/auth_repo.py
