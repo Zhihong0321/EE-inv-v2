@@ -98,7 +98,7 @@ class InvoiceCreate(BaseModel):
     voucher_code: Optional[str] = None
 
     # Items
-    items: List[InvoiceItemCreate]
+    items: List[InvoiceItemCreate] = Field(default_factory=list)
 
     # Notes
     internal_notes: Optional[str] = None
