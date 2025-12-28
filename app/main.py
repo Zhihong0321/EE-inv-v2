@@ -40,10 +40,24 @@ app.include_router(migration.router)
 @app.get("/api/v1/health")
 def health_check():
     """Health check endpoint"""
+    from app.database import check_database_health
+
+    db_health = check_database_health()
+
     return {
-        "status": "healthy",
+        "status": "healthy" if db_health else "unhealthy",
         "version": "1.0.0",
+        "database": "connected" if db_health else "disconnected",
     }
+
+
+# Database connection info
+@app.get("/api/v1/db-info")
+def db_info():
+    """Get database connection information (sanitized)"""
+    from app.database import get_connection_info
+
+    return get_connection_info()
 
 
 # Root redirect to admin

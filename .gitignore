@@ -43,3 +43,6 @@ Thumbs.db
 
 # auth_repo.py (Droid Shield - commit manually)
 app/repositories/auth_repo.py
+
+# railway_db.py (Droid Shield - commit manually)
+app/railway_db.py
