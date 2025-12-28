@@ -1,0 +1,458 @@
+from sqlalchemy.orm import Session
+from typing import Optional, List
+from datetime import datetime, timedelta
+from decimal import Decimal
+from app.models.invoice import InvoiceNew, InvoiceNewItem, InvoicePaymentNew
+from app.models.invoice import AuditLog
+from app.utils.security import generate_share_token
+from app.config import settings
+import secrets
+import json
+
+
+class InvoiceRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def _generate_invoice_number(self) -> str:
+        """Generate next invoice number"""
+        # Find the highest invoice number
+        last_invoice = self.db.query(InvoiceNew).order_by(
+            InvoiceNew.invoice_number.desc()
+        ).first()
+
+        if last_invoice:
+            # Extract number part (after INV-)
+            try:
+                last_num = int(last_invoice.invoice_number.replace(settings.INVOICE_NUMBER_PREFIX + "-", ""))
+                next_num = last_num + 1
+            except:
+                next_num = 1
+        else:
+            next_num = 1
+
+        # Format with leading zeros
+        num_str = str(next_num).zfill(settings.INVOICE_NUMBER_LENGTH)
+        return f"{settings.INVOICE_NUMBER_PREFIX}-{num_str}"
+
+    def create(
+        self,
+        customer_id: Optional[str] = None,
+        template_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        package_id: Optional[str] = None,
+        invoice_number: Optional[str] = None,
+        invoice_date: Optional[str] = None,
+        due_date: Optional[str] = None,
+        discount_percent: Optional[Decimal] = None,
+        voucher_code: Optional[str] = None,
+        items: Optional[List[dict]] = None,
+        internal_notes: Optional[str] = None,
+        customer_notes: Optional[str] = None,
+        customer_name_snapshot: str = "",
+        customer_address_snapshot: Optional[str] = None,
+        customer_phone_snapshot: Optional[str] = None,
+        customer_email_snapshot: Optional[str] = None,
+        agent_name_snapshot: Optional[str] = None,
+        package_name_snapshot: Optional[str] = None,
+        created_by: Optional[str] = None,
+        linked_old_invoice: Optional[str] = None,
+    ) -> InvoiceNew:
+        """Create a new invoice"""
+        bubble_id = f"inv_{secrets.token_hex(8)}"
+
+        if not invoice_number:
+            invoice_number = self._generate_invoice_number()
+
+        if not invoice_date:
+            invoice_date = datetime.utcnow().strftime("%Y-%m-%d")
+
+        # Create invoice
+        invoice = InvoiceNew(
+            bubble_id=bubble_id,
+            template_id=template_id,
+            customer_id=customer_id,
+            customer_name_snapshot=customer_name_snapshot,
+            customer_address_snapshot=customer_address_snapshot,
+            customer_phone_snapshot=customer_phone_snapshot,
+            customer_email_snapshot=customer_email_snapshot,
+            agent_id=agent_id,
+            agent_name_snapshot=agent_name_snapshot,
+            package_id=package_id,
+            package_name_snapshot=package_name_snapshot,
+            invoice_number=invoice_number,
+            invoice_date=invoice_date,
+            due_date=due_date,
+            discount_percent=discount_percent,
+            voucher_code=voucher_code,
+            internal_notes=internal_notes,
+            customer_notes=customer_notes,
+            sst_rate=settings.DEFAULT_SST_RATE,
+            created_by=created_by,
+            linked_old_invoice=linked_old_invoice,
+        )
+        self.db.add(invoice)
+        self.db.flush()  # Get the invoice ID
+
+        # Add items
+        if items:
+            for item_data in items:
+                item = InvoiceNewItem(
+                    bubble_id=f"item_{secrets.token_hex(8)}",
+                    invoice_id=bubble_id,
+                    product_id=item_data.get("product_id"),
+                    product_name_snapshot=item_data.get("product_name_snapshot"),
+                    description=item_data["description"],
+                    qty=Decimal(str(item_data["qty"])),
+                    unit_price=Decimal(str(item_data["unit_price"])),
+                    discount_percent=Decimal(str(item_data.get("discount_percent", 0))),
+                    total_price=Decimal(str(item_data["total_price"])),
+                    sort_order=item_data.get("sort_order", 0),
+                )
+                self.db.add(item)
+
+        # Calculate totals
+        self._calculate_invoice_totals(invoice)
+        self.db.commit()
+        self.db.refresh(invoice)
+
+        # Audit log
+        self._create_audit_log("invoice_new", bubble_id, "create", created_by, None, invoice.to_dict())
+
+        return invoice
+
+    def _calculate_invoice_totals(self, invoice: InvoiceNew) -> None:
+        """Calculate invoice totals"""
+        # Get all items
+        items = self.db.query(InvoiceNewItem).filter(
+            InvoiceNewItem.invoice_id == invoice.bubble_id
+        ).all()
+
+        # Calculate subtotal
+        subtotal = sum(item.total_price for item in items)
+        invoice.subtotal = subtotal
+
+        # Calculate discount
+        if invoice.discount_percent:
+            invoice.discount_amount = subtotal * (invoice.discount_percent / Decimal(100))
+        else:
+            invoice.discount_amount = Decimal(0)
+
+        # Calculate SST (on subtotal - discount)
+        taxable_amount = subtotal - invoice.discount_amount
+        invoice.sst_amount = taxable_amount * (invoice.sst_rate / Decimal(100))
+
+        # Calculate total
+        invoice.total_amount = taxable_amount + invoice.sst_amount - invoice.voucher_amount
+
+    def get_by_id(self, bubble_id: str) -> Optional[InvoiceNew]:
+        """Get invoice by ID"""
+        return self.db.query(InvoiceNew).filter(InvoiceNew.bubble_id == bubble_id).first()
+
+    def get_by_number(self, invoice_number: str) -> Optional[InvoiceNew]:
+        """Get invoice by invoice number"""
+        return self.db.query(InvoiceNew).filter(InvoiceNew.invoice_number == invoice_number).first()
+
+    def get_by_share_token(self, share_token: str) -> Optional[InvoiceNew]:
+        """Get invoice by share token"""
+        invoice = self.db.query(InvoiceNew).filter(
+            InvoiceNew.share_token == share_token
+        ).first()
+
+        # Check if share is valid
+        if invoice and invoice.share_enabled:
+            if invoice.share_expires_at and invoice.share_expires_at < datetime.utcnow():
+                return None
+            return invoice
+
+        return None
+
+    def get_all(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        status: Optional[str] = None,
+        customer_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> tuple[List[InvoiceNew], int]:
+        """Get all invoices with filters"""
+        query = self.db.query(InvoiceNew)
+
+        if status:
+            query = query.filter(InvoiceNew.status == status)
+        if customer_id:
+            query = query.filter(InvoiceNew.customer_id == customer_id)
+        if agent_id:
+            query = query.filter(InvoiceNew.agent_id == agent_id)
+        if date_from:
+            query = query.filter(InvoiceNew.invoice_date >= date_from)
+        if date_to:
+            query = query.filter(InvoiceNew.invoice_date <= date_to)
+
+        query = query.order_by(InvoiceNew.invoice_date.desc(), InvoiceNew.created_at.desc())
+
+        total = query.count()
+        invoices = query.offset(skip).limit(limit).all()
+        return invoices, total
+
+    def update(
+        self,
+        bubble_id: str,
+        **kwargs
+    ) -> Optional[InvoiceNew]:
+        """Update invoice"""
+        invoice = self.get_by_id(bubble_id)
+        if not invoice:
+            return None
+
+        old_data = invoice.to_dict()
+
+        for key, value in kwargs.items():
+            if hasattr(invoice, key) and value is not None:
+                setattr(invoice, key, value)
+
+        invoice.updated_at = datetime.utcnow()
+
+        # Recalculate totals
+        self._calculate_invoice_totals(invoice)
+
+        self.db.commit()
+        self.db.refresh(invoice)
+
+        # Audit log
+        self._create_audit_log("invoice_new", bubble_id, "update", invoice.created_by, old_data, invoice.to_dict())
+
+        return invoice
+
+    def delete(self, bubble_id: str) -> bool:
+        """Delete invoice"""
+        invoice = self.get_by_id(bubble_id)
+        if not invoice:
+            return False
+
+        old_data = invoice.to_dict()
+
+        # Delete related items and payments (cascade)
+        self.db.query(InvoiceNewItem).filter(InvoiceNewItem.invoice_id == bubble_id).delete()
+        self.db.query(InvoicePaymentNew).filter(InvoicePaymentNew.invoice_id == bubble_id).delete()
+
+        self.db.delete(invoice)
+        self.db.commit()
+
+        # Audit log
+        self._create_audit_log("invoice_new", bubble_id, "delete", invoice.created_by, old_data, None)
+
+        return True
+
+    def add_item(
+        self,
+        invoice_id: str,
+        product_id: Optional[str],
+        product_name_snapshot: Optional[str],
+        description: str,
+        qty: Decimal,
+        unit_price: Decimal,
+        discount_percent: Decimal = Decimal(0),
+        sort_order: int = 0,
+    ) -> InvoiceNewItem:
+        """Add item to invoice"""
+        item = InvoiceNewItem(
+            bubble_id=f"item_{secrets.token_hex(8)}",
+            invoice_id=invoice_id,
+            product_id=product_id,
+            product_name_snapshot=product_name_snapshot,
+            description=description,
+            qty=qty,
+            unit_price=unit_price,
+            discount_percent=discount_percent,
+            total_price=qty * unit_price * (1 - discount_percent / Decimal(100)),
+            sort_order=sort_order,
+        )
+        self.db.add(item)
+
+        # Recalculate invoice totals
+        invoice = self.get_by_id(invoice_id)
+        if invoice:
+            self._calculate_invoice_totals(invoice)
+
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def update_item(
+        self,
+        item_id: str,
+        **kwargs
+    ) -> Optional[InvoiceNewItem]:
+        """Update invoice item"""
+        item = self.db.query(InvoiceNewItem).filter(
+            InvoiceNewItem.bubble_id == item_id
+        ).first()
+
+        if not item:
+            return None
+
+        for key, value in kwargs.items():
+            if hasattr(item, key) and value is not None:
+                setattr(item, key, value)
+
+        # Recalculate total price
+        item.total_price = item.qty * item.unit_price * (1 - item.discount_percent / Decimal(100))
+
+        # Recalculate invoice totals
+        invoice = self.get_by_id(item.invoice_id)
+        if invoice:
+            self._calculate_invoice_totals(invoice)
+
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def delete_item(self, item_id: str) -> bool:
+        """Delete invoice item"""
+        item = self.db.query(InvoiceNewItem).filter(
+            InvoiceNewItem.bubble_id == item_id
+        ).first()
+
+        if not item:
+            return False
+
+        invoice_id = item.invoice_id
+        self.db.delete(item)
+
+        # Recalculate invoice totals
+        invoice = self.get_by_id(invoice_id)
+        if invoice:
+            self._calculate_invoice_totals(invoice)
+
+        self.db.commit()
+        return True
+
+    def add_payment(
+        self,
+        invoice_id: str,
+        amount: Decimal,
+        payment_method: str,
+        payment_date: str,
+        reference_no: Optional[str] = None,
+        bank_name: Optional[str] = None,
+        notes: Optional[str] = None,
+        attachment_urls: Optional[List[str]] = None,
+        created_by: Optional[str] = None,
+    ) -> InvoicePaymentNew:
+        """Add payment to invoice"""
+        payment = InvoicePaymentNew(
+            bubble_id=f"pay_{secrets.token_hex(8)}",
+            invoice_id=invoice_id,
+            amount=amount,
+            payment_method=payment_method,
+            payment_date=payment_date,
+            reference_no=reference_no,
+            bank_name=bank_name,
+            notes=notes,
+            attachment_urls=attachment_urls,
+            created_by=created_by,
+        )
+        self.db.add(payment)
+
+        # Update invoice paid amount
+        invoice = self.get_by_id(invoice_id)
+        if invoice:
+            invoice.paid_amount += amount
+
+            # Update status
+            if invoice.paid_amount >= invoice.total_amount:
+                invoice.status = "paid"
+                invoice.paid_at = datetime.utcnow()
+            elif invoice.paid_amount > 0:
+                invoice.status = "partial"
+
+        self.db.commit()
+        self.db.refresh(payment)
+        return payment
+
+    def generate_share_link(
+        self,
+        bubble_id: str,
+        expires_in_days: Optional[int] = None
+    ) -> Optional[InvoiceNew]:
+        """Generate a shareable link for invoice"""
+        invoice = self.get_by_id(bubble_id)
+        if not invoice:
+            return None
+
+        # Generate share token
+        share_token = generate_share_token()
+        invoice.share_token = share_token
+        invoice.share_enabled = True
+
+        # Set expiry
+        if expires_in_days:
+            invoice.share_expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+        else:
+            invoice.share_expires_at = datetime.utcnow() + timedelta(days=settings.SHARE_LINK_EXPIRY_DAYS)
+
+        self.db.commit()
+        self.db.refresh(invoice)
+        return invoice
+
+    def record_view(self, bubble_id: str) -> None:
+        """Record that invoice was viewed via share link"""
+        invoice = self.get_by_id(bubble_id)
+        if invoice:
+            invoice.viewed_at = datetime.utcnow()
+            invoice.share_access_count += 1
+            self.db.commit()
+
+    def get_unmigrated_old_invoices(self, limit: int = 100) -> List[dict]:
+        """Get old invoices that haven't been migrated yet"""
+        # Query from the old invoice table using raw SQL
+        query = """
+            SELECT i.*, array_agg(jsonb_build_object(
+                'bubble_id', ii.bubble_id,
+                'description', ii.description,
+                'qty', ii.qty,
+                'unit_price', ii.unit_price,
+                'amount', ii.amount
+            )) as items
+            FROM invoice i
+            LEFT JOIN invoice_item ii ON i.bubble_id = ii.linked_invoice
+            WHERE NOT EXISTS (
+                SELECT 1 FROM invoice_new inv
+                WHERE inv.linked_old_invoice = i.bubble_id
+            )
+            GROUP BY i.bubble_id
+            LIMIT :limit
+        """
+        result = self.db.execute(query, {"limit": limit})
+        return [dict(row) for row in result]
+
+    def _create_audit_log(
+        self,
+        entity_type: str,
+        entity_id: str,
+        action: str,
+        user_id: Optional[str],
+        old_values: Optional[dict],
+        new_values: Optional[dict],
+        ip_address: Optional[str] = None,
+    ) -> None:
+        """Create an audit log entry"""
+        log = AuditLog(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            action=action,
+            user_id=user_id,
+            old_values=json.dumps(old_values) if old_values else None,
+            new_values=json.dumps(new_values) if new_values else None,
+            ip_address=ip_address,
+        )
+        self.db.add(log)
+        self.db.commit()
+
+
+# Monkey patch to_dict method for SQLAlchemy models
+def to_dict(model):
+    return {c.name: getattr(model, c.name) for c in model.__table__.columns}
