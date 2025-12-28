@@ -22,8 +22,8 @@ router = APIRouter(prefix="/api/v1/invoices", tags=["Invoices"])
 @router.post("", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 def create_invoice(
     invoice_data: InvoiceCreate,
-    current_user: AuthUser = Depends(get_current_user),
     request: Request,
+    current_user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new invoice (auto-create customer if customer_id not provided)"""

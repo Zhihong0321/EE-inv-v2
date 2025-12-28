@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 
 class Settings(BaseSettings):
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     SHARE_LINK_EXPIRY_DAYS: int = 7
 
     # CORS
-    CORS_ORIGINS: list = ["*"]
+    CORS_ORIGINS: str = "*"  # Comma-separated origins, "*" allows all
 
     class Config:
         env_file = ".env"

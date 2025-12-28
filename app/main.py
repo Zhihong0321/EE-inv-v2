@@ -7,7 +7,11 @@ from app.database import engine, Base
 from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration
 
 # Create database tables
-Base.metadata.create_all(bind=engine)
+# Only create tables if not in Railway environment
+# Skip for local testing to avoid database connection errors
+import os
+if not os.getenv("SKIP_DB_INIT"):
+    Base.metadata.create_all(bind=engine)
 
 # Create FastAPI app
 app = FastAPI(
