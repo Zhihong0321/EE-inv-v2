@@ -45,6 +45,7 @@ def create_template(
         logo_url=logo_url_str,
         terms_and_conditions=template_data.terms_and_conditions,
         disclaimer=template_data.disclaimer,
+        apply_sst=template_data.apply_sst,
         is_default=template_data.is_default,
         created_by=current_user.user_id,
     )
@@ -105,6 +106,7 @@ def list_templates(
                 "logo_url": t.logo_url,
                 "terms_and_conditions": t.terms_and_conditions,
                 "disclaimer": t.disclaimer,
+                "apply_sst": t.apply_sst,
                 "active": t.active,
                 "is_default": t.is_default,
                 "created_at": t.created_at.isoformat() if t.created_at else None,

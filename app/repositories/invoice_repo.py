@@ -91,6 +91,21 @@ class InvoiceRepository:
             created_by=created_by,
             linked_old_invoice=linked_old_invoice,
         )
+
+        # SST override logic
+        if template_id:
+            from app.models.template import InvoiceTemplate
+            template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.bubble_id == template_id).first()
+            if template and not template.apply_sst:
+                invoice.sst_rate = Decimal(0)
+        else:
+            from app.models.template import InvoiceTemplate
+            default_template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.is_default == True).first()
+            if default_template and not default_template.apply_sst:
+                invoice.sst_rate = Decimal(0)
+            elif not default_template:
+                invoice.sst_rate = Decimal(0)
+
         self.db.add(invoice)
         self.db.flush()  # Get the invoice ID
 

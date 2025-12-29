@@ -602,9 +602,15 @@ async def admin_templates():
                             <textarea id="terms_and_conditions" rows="3" class="w-full border p-2 rounded mt-1"></textarea>
                         </div>
 
-                        <div class="flex items-center">
-                            <input type="checkbox" id="is_default" class="mr-2">
-                            <label for="is_default" class="text-sm font-medium text-gray-700">Set as Default Template</label>
+                        <div class="flex items-center space-x-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="apply_sst" class="mr-2">
+                                <label for="apply_sst" class="text-sm font-medium text-gray-700">Apply SST (8%)</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="is_default" class="mr-2">
+                                <label for="is_default" class="text-sm font-medium text-gray-700">Set as Default Template</label>
+                            </div>
                         </div>
 
                         <div class="flex justify-end pt-4 space-x-3">
@@ -626,7 +632,7 @@ async def admin_templates():
             const fields = [
                 'template_name', 'company_name', 'company_address', 'company_phone', 
                 'company_email', 'sst_registration_no', 'bank_name', 'bank_account_no', 
-                'bank_account_name', 'logo_url', 'terms_and_conditions', 'is_default'
+                'bank_account_name', 'logo_url', 'terms_and_conditions', 'apply_sst', 'is_default'
             ];
 
             async function fetchTemplates() {
@@ -664,7 +670,7 @@ async def admin_templates():
                         <div class="flex justify-between items-start mb-4">
                             <div>
                                 <h3 class="font-bold text-lg">${t.template_name}</h3>
-                                <p class="text-sm text-gray-500">${t.company_name}</p>
+                                <p class="text-sm text-gray-500">${t.company_name} ${t.apply_sst ? '<span class="text-indigo-600 font-bold ml-1">(SST Enabled)</span>' : ''}</p>
                             </div>
                             ${t.is_default ? '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Default</span>' : ''}
                         </div>

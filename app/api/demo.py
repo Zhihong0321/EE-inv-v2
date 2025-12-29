@@ -78,7 +78,8 @@ def generate_random_invoice_view(db: Session = Depends(get_db)):
             "bank_account_name": template_model.bank_account_name,
             "logo_url": template_model.logo_url,
             "terms_and_conditions": template_model.terms_and_conditions,
-            "disclaimer": template_model.disclaimer
+            "disclaimer": template_model.disclaimer,
+            "apply_sst": template_model.apply_sst
         }
     else:
         # Fallback template
@@ -91,13 +92,14 @@ def generate_random_invoice_view(db: Session = Depends(get_db)):
             "bank_account_no": "512345678901",
             "bank_account_name": "My Demo Company Sdn Bhd",
             "terms_and_conditions": "Payment due within 14 days.\nGoods sold are not returnable.",
-            "disclaimer": "This is a computer generated invoice."
+            "disclaimer": "This is a computer generated invoice.",
+            "apply_sst": False
         }
 
     # 4. Construct Invoice Data
     # Calculate totals
     subtotal = sum(item['total_price'] for item in items)
-    sst_rate = 8.0
+    sst_rate = 8.0 if template_data.get("apply_sst") else 0.0
     sst_amount = subtotal * (sst_rate / 100)
     total_amount = subtotal + sst_amount
 

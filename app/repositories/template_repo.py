@@ -22,6 +22,7 @@ class TemplateRepository:
         logo_url: Optional[str] = None,
         terms_and_conditions: Optional[str] = None,
         disclaimer: Optional[str] = None,
+        apply_sst: bool = False,
         is_default: bool = False,
         created_by: Optional[str] = None,
     ) -> InvoiceTemplate:
@@ -48,6 +49,7 @@ class TemplateRepository:
             logo_url=logo_url,
             terms_and_conditions=terms_and_conditions,
             disclaimer=disclaimer,
+            apply_sst=apply_sst,
             is_default=is_default,
             created_by=created_by,
         )

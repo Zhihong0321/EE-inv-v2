@@ -16,6 +16,7 @@ class TemplateCreate(BaseModel):
     logo_url: Optional[HttpUrl] = None
     terms_and_conditions: Optional[str] = None
     disclaimer: Optional[str] = None
+    apply_sst: Optional[bool] = False
     is_default: Optional[bool] = False
 
 
@@ -32,6 +33,7 @@ class TemplateUpdate(BaseModel):
     logo_url: Optional[HttpUrl] = None
     terms_and_conditions: Optional[str] = None
     disclaimer: Optional[str] = None
+    apply_sst: Optional[bool] = None
     active: Optional[bool] = None
     is_default: Optional[bool] = None
 
@@ -50,6 +52,7 @@ class TemplateResponse(BaseModel):
     logo_url: Optional[str] = None
     terms_and_conditions: Optional[str] = None
     disclaimer: Optional[str] = None
+    apply_sst: Optional[bool] = None
     active: Optional[bool] = None
     is_default: Optional[bool] = None
     created_at: Optional[datetime] = None

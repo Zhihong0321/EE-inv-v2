@@ -27,6 +27,9 @@ class InvoiceTemplate(Base):
     terms_and_conditions = Column(Text)
     disclaimer = Column(Text)
 
+    # SST Toggle
+    apply_sst = Column(Boolean, default=False)
+
     # Metadata
     active = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)
