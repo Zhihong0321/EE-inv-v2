@@ -124,9 +124,15 @@ async def sniper_debug(request: Request):
 @app.get("/api/v1/setup-admin/{whatsapp_number}")
 def setup_admin(whatsapp_number: str):
     """Seed the first admin user via WhatsApp number"""
-    from app.database import SessionLocal
+    from app.database import SessionLocal, engine, Base
     from app.models.auth import AuthUser
+    from app.models.customer import Customer
+    from app.models.invoice import InvoiceNew
+    from app.models.template import InvoiceTemplate
     import uuid
+
+    # Ensure tables are created using the correct engine
+    Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
     try:
