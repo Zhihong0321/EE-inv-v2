@@ -10,6 +10,9 @@ from app.models.auth import AuthUser
 router = APIRouter(prefix="/api/v1/templates", tags=["Templates"])
 
 
+from app.utils.helpers import validate_sst_number
+
+
 @router.post("", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
 def create_template(
     template_data: TemplateCreate,
@@ -17,6 +20,13 @@ def create_template(
     db: Session = Depends(get_db)
 ):
     """Create a new invoice template"""
+    # Validate SST registration number
+    if not validate_sst_number(template_data.sst_registration_no):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid SST registration number format. Expected format: ST followed by 10-12 digits (e.g., ST1234567890)"
+        )
+
     template_repo = TemplateRepository(db)
 
     # Convert logo_url to string if it's an HttpUrl
@@ -113,6 +123,13 @@ def update_template(
     db: Session = Depends(get_db)
 ):
     """Update template"""
+    # Validate SST registration number if provided
+    if template_data.sst_registration_no and not validate_sst_number(template_data.sst_registration_no):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid SST registration number format. Expected format: ST followed by 10-12 digits (e.g., ST1234567890)"
+        )
+
     template_repo = TemplateRepository(db)
 
     # Convert logo_url to string if it's an HttpUrl
