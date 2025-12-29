@@ -15,7 +15,7 @@ class InvoiceTemplate(Base):
     company_address = Column(Text, nullable=False)
     company_phone = Column(String)
     company_email = Column(String)
-    sst_registration_no = Column(String, nullable=False)
+    sst_registration_no = Column(String, nullable=True)
     bank_name = Column(String)
     bank_account_no = Column(String)
     bank_account_name = Column(String)

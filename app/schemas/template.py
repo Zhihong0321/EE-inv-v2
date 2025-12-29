@@ -9,7 +9,7 @@ class TemplateCreate(BaseModel):
     company_address: str = Field(..., min_length=1)
     company_phone: Optional[str] = None
     company_email: Optional[str] = None
-    sst_registration_no: str = Field(..., min_length=1, pattern=r"^ST\d{10,12}$")
+    sst_registration_no: Optional[str] = None
     bank_name: Optional[str] = None
     bank_account_no: Optional[str] = None
     bank_account_name: Optional[str] = None
@@ -25,7 +25,7 @@ class TemplateUpdate(BaseModel):
     company_address: Optional[str] = Field(None, min_length=1)
     company_phone: Optional[str] = None
     company_email: Optional[str] = None
-    sst_registration_no: Optional[str] = Field(None, pattern=r"^ST\d{10,12}$")
+    sst_registration_no: Optional[str] = None
     bank_name: Optional[str] = None
     bank_account_no: Optional[str] = None
     bank_account_name: Optional[str] = None
