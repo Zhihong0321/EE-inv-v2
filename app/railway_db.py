@@ -113,10 +113,11 @@ def check_database_health() -> bool:
         True if database is connected, False otherwise
     """
     try:
+        from sqlalchemy import text
         engine = get_engine()
         with engine.connect() as conn:
-            # Simple query to test connection
-            conn.execute("SELECT 1")
+            # Simple query to test connection (text() wrapper required for SQLAlchemy 2.0+)
+            conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
         # Log error (don't expose connection details)
