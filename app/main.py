@@ -55,6 +55,36 @@ def health_check():
     }
 
 
+# Root path health check (for Railway default health check)
+@app.get("/")
+def root_health_check():
+    """Root path health check for Railway"""
+    from app.database import check_database_health
+
+    db_health = check_database_health()
+
+    return {
+        "status": "healthy" if db_health else "unhealthy",
+        "version": "1.0.0",
+        "database": "connected" if db_health else "disconnected",
+    }
+
+
+# Alternative health check paths
+@app.get("/health")
+def health_path_check():
+    """/health path check for Railway"""
+    from app.database import check_database_health
+
+    db_health = check_database_health()
+
+    return {
+        "status": "healthy" if db_health else "unhealthy",
+        "version": "1.0.0",
+        "database": "connected" if db_health else "disconnected",
+    }
+
+
 # Database connection info
 @app.get("/api/v1/db-info")
 def db_info():
