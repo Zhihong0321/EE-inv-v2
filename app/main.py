@@ -26,10 +26,11 @@ async def initialize_db():
 
     engine, Base, connect_with_retry, _ = get_db_resources()
 
-    # Wait for connection with retry
-    if await asyncio.to_thread(connect_with_retry, max_retries=10, delay=2):
+    # Deep Root Cause: We must wait for the database to be reachable before trying create_all
+    logger.info("Database warming up... waiting for internal network.")
+    if await asyncio.to_thread(connect_with_retry, max_retries=15, delay=3):
         try:
-            logger.info("Creating database tables...")
+            logger.info("Internal network ready. Syncing models...")
             # Import models to ensure they are registered with Base
             from app.models.auth import AuthUser
             from app.models.customer import Customer
@@ -37,9 +38,9 @@ async def initialize_db():
             from app.models.template import InvoiceTemplate
             
             await asyncio.to_thread(Base.metadata.create_all, bind=engine)
-            logger.info("Database tables created successfully.")
+            logger.info("Database schema is up to date.")
         except Exception as e:
-            logger.error(f"Failed to create database tables: {e}")
+            logger.error(f"SCHEMA ERROR: {e}")
     else:
         logger.error("Could not initialize database: Connection failed after retries.")
 
@@ -156,28 +157,17 @@ async def sniper_debug(request: Request):
 @app.get("/api/v1/setup-admin/{whatsapp_number}")
 def setup_admin(whatsapp_number: str):
     """Seed the first admin user via WhatsApp number"""
-    from app.database import SessionLocal, engine, Base
-    from app.railway_db import get_railway_database_url
+    from app.railway_db import get_session_local, get_engine, Base
     from app.models.auth import AuthUser
-    from app.models.customer import Customer
-    from app.models.invoice import InvoiceNew
-    from app.models.template import InvoiceTemplate
     import uuid
-    import os
 
-    # DEBUG: Print environment info
-    db_url = get_railway_database_url()
-    host = "unknown"
-    if "@" in db_url:
-        host = db_url.split("@")[1].split(":")[0]
-    print(f"DEBUG: Setup endpoint using DB host: {host}")
-
-    # Ensure tables are created using the correct engine
-    Base.metadata.create_all(bind=engine)
-
-    db = SessionLocal()
+    # Use lazy session
+    Session = get_session_local()
+    db = Session()
     try:
-        # Check if user already exists
+        # Ensure tables exist for this specific request
+        Base.metadata.create_all(bind=get_engine())
+        
         user = db.query(AuthUser).filter(AuthUser.whatsapp_number == whatsapp_number).first()
         if user:
             user.role = "admin"
