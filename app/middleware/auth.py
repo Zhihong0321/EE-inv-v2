@@ -63,12 +63,18 @@ def get_api_key_user(
         raise credentials_exception
 
     # Check expiration
-    from datetime import datetime
-    if key_record.expires_at and key_record.expires_at < datetime.utcnow():
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key expired",
-        )
+    from datetime import datetime, timezone
+    if key_record.expires_at:
+        # Handle timezone naive vs aware comparison
+        expires_at = key_record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key expired",
+            )
 
     # Get user
     user = db.query(AuthUser).filter(AuthUser.user_id == key_record.created_by).first()

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.customer import Customer
 import secrets
 
@@ -89,7 +89,7 @@ class CustomerRepository:
             if hasattr(customer, key) and value is not None:
                 setattr(customer, key, value)
 
-        customer.updated_at = datetime.utcnow()
+        customer.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(customer)
         return customer

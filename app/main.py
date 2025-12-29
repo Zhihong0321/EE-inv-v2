@@ -31,18 +31,22 @@ async def initialize_db():
     if await asyncio.to_thread(connect_with_retry, max_retries=15, delay=3):
         try:
             logger.info("Internal network ready. Syncing models...")
-            # Import models to ensure they are registered with Base
-            from app.models.auth import AuthUser
-            from app.models.customer import Customer
-            from app.models.invoice import InvoiceNew
-            from app.models.template import InvoiceTemplate
+            # CRITICAL: Import ALL models here to ensure Base knows about them
+            import app.models.auth
+            import app.models.customer
+            import app.models.invoice
+            import app.models.template
+            
+            # Explicitly reference models to avoid 'unused' removal by linters
+            _ = [app.models.auth.AuthUser, app.models.customer.Customer, 
+                 app.models.invoice.InvoiceNew, app.models.template.InvoiceTemplate]
             
             await asyncio.to_thread(Base.metadata.create_all, bind=engine)
             logger.info("Database schema is up to date.")
         except Exception as e:
             logger.error(f"SCHEMA ERROR: {e}")
     else:
-        logger.error("Could not initialize database: Connection failed after retries.")
+        logger.critical("DATABASE UNREACHABLE: Background initialization failed.")
 
 # Lifespan context manager
 @asynccontextmanager

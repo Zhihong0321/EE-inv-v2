@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from app.database import get_db
 from app.schemas.invoice import (
@@ -381,7 +381,7 @@ def mark_invoice_sent(
     """Mark invoice as sent"""
     invoice_repo = InvoiceRepository(db)
 
-    invoice = invoice_repo.update(bubble_id, status="sent", sent_at=datetime.utcnow())
+    invoice = invoice_repo.update(bubble_id, status="sent", sent_at=datetime.now(timezone.utc))
 
     if not invoice:
         raise HTTPException(
@@ -401,7 +401,7 @@ def mark_invoice_paid(
     """Mark invoice as fully paid"""
     invoice_repo = InvoiceRepository(db)
 
-    invoice = invoice_repo.update(bubble_id, status="paid", paid_at=datetime.utcnow())
+    invoice = invoice_repo.update(bubble_id, status="paid", paid_at=datetime.now(timezone.utc))
 
     if not invoice:
         raise HTTPException(

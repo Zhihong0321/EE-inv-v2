@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from app.models.invoice import InvoiceNew, InvoiceNewItem, InvoicePaymentNew
 from app.models.invoice import AuditLog
@@ -65,7 +65,7 @@ class InvoiceRepository:
             invoice_number = self._generate_invoice_number()
 
         if not invoice_date:
-            invoice_date = datetime.utcnow().strftime("%Y-%m-%d")
+            invoice_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         # Create invoice
         invoice = InvoiceNew(
@@ -161,7 +161,7 @@ class InvoiceRepository:
 
         # Check if share is valid
         if invoice and invoice.share_enabled:
-            if invoice.share_expires_at and invoice.share_expires_at < datetime.utcnow():
+            if invoice.share_expires_at and invoice.share_expires_at < datetime.now(timezone.utc):
                 return None
             return invoice
 
@@ -213,7 +213,7 @@ class InvoiceRepository:
             if hasattr(invoice, key) and value is not None:
                 setattr(invoice, key, value)
 
-        invoice.updated_at = datetime.utcnow()
+        invoice.updated_at = datetime.now(timezone.utc)
 
         # Recalculate totals
         self._calculate_invoice_totals(invoice)
@@ -365,7 +365,7 @@ class InvoiceRepository:
             # Update status
             if invoice.paid_amount >= invoice.total_amount:
                 invoice.status = "paid"
-                invoice.paid_at = datetime.utcnow()
+                invoice.paid_at = datetime.now(timezone.utc)
             elif invoice.paid_amount > 0:
                 invoice.status = "partial"
 
@@ -390,9 +390,9 @@ class InvoiceRepository:
 
         # Set expiry
         if expires_in_days:
-            invoice.share_expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+            invoice.share_expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
         else:
-            invoice.share_expires_at = datetime.utcnow() + timedelta(days=settings.SHARE_LINK_EXPIRY_DAYS)
+            invoice.share_expires_at = datetime.now(timezone.utc) + timedelta(days=settings.SHARE_LINK_EXPIRY_DAYS)
 
         self.db.commit()
         self.db.refresh(invoice)
@@ -402,7 +402,7 @@ class InvoiceRepository:
         """Record that invoice was viewed via share link"""
         invoice = self.get_by_id(bubble_id)
         if invoice:
-            invoice.viewed_at = datetime.utcnow()
+            invoice.viewed_at = datetime.now(timezone.utc)
             invoice.share_access_count += 1
             self.db.commit()
 
