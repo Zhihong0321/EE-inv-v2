@@ -116,11 +116,13 @@ def health_check(response: Response):
 @app.get("/api/v1/debug")
 async def sniper_debug(request: Request):
     """Comprehensive debug endpoint to investigate Railway deployment issues"""
-    from app.database import check_database_health, get_connection_info
+    from app.railway_db import check_database_health, get_connection_info
+    from app.services.whatsapp_service import whatsapp_service
     import socket
 
     db_health = check_database_health()
     db_info = get_connection_info()
+    wa_status = await whatsapp_service.check_status()
     
     # Check DNS resolution for railway.internal
     internal_dns = "unknown"
@@ -145,6 +147,7 @@ async def sniper_debug(request: Request):
             "connected": db_health,
             "info": db_info
         },
+        "whatsapp_service": wa_status,
         "headers": dict(request.headers)
     }
 
@@ -395,6 +398,7 @@ async def admin_login():
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ whatsapp_number: phone })
                     });
+                    
                     const data = await response.json();
 
                     if (response.ok) {
@@ -402,10 +406,10 @@ async def admin_login():
                         document.getElementById('step-2').classList.remove('hidden');
                         document.getElementById('error').classList.add('hidden');
                     } else {
-                        showError(data.detail || 'Failed to send OTP');
+                        showError(data.detail || data.message || 'Error ' + response.status);
                     }
                 } catch (e) {
-                    showError('Failed to connect to server');
+                    showError('Network Error: ' + e.message);
                 }
             }
 
