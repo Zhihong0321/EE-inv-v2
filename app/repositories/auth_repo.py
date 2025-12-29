@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from app.models.auth import AuthUser, APIKey, AuthSession
 from app.utils.security import generate_otp, generate_share_token
@@ -43,7 +43,7 @@ class AuthRepository:
         user = self.db.query(AuthUser).filter(AuthUser.user_id == user_id).first()
         if user:
             user.last_otp_code = otp_code
-            user.last_otp_at = datetime.utcnow()
+            user.last_otp_at = datetime.now(timezone.utc)
             self.db.commit()
 
     def verify_user_otp(self, whatsapp: str, otp_code: str) -> Optional[AuthUser]:
@@ -58,13 +58,18 @@ class AuthRepository:
 
         # Check OTP expiration
         if user.last_otp_at:
-            expiry_time = user.last_otp_at + timedelta(seconds=settings.OTP_EXPIRE_SECONDS)
-            if datetime.utcnow() > expiry_time:
+            # Handle timezone naive vs aware comparison
+            last_otp_at = user.last_otp_at
+            if last_otp_at.tzinfo is None:
+                last_otp_at = last_otp_at.replace(tzinfo=timezone.utc)
+            
+            expiry_time = last_otp_at + timedelta(seconds=settings.OTP_EXPIRE_SECONDS)
+            if datetime.now(timezone.utc) > expiry_time:
                 return None
 
         # Clear OTP after successful verification
         user.last_otp_code = None
-        user.last_login_at = datetime.utcnow()
+        user.last_login_at = datetime.now(timezone.utc)
         self.db.commit()
 
         return user
@@ -95,7 +100,7 @@ class AuthRepository:
 
         expires_at = None
         if expires_in_days:
-            expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
 
         api_key = APIKey(
             key_id=key_id,
@@ -145,7 +150,7 @@ class AuthRepository:
     def cleanup_expired_sessions(self) -> int:
         """Clean up expired sessions"""
         deleted = self.db.query(AuthSession).filter(
-            AuthSession.expires_at < datetime.utcnow()
+            AuthSession.expires_at < datetime.now(timezone.utc)
         ).delete()
         self.db.commit()
         return deleted
