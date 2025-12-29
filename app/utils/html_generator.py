@@ -37,27 +37,28 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
         for line in lines:
             line = line.strip()
             if not line: continue
+            # USE INLINE STYLE TO BYPASS BROWSER MINIMUMS AND TAILWIND JIT ISSUES
             if len(line) < 40 and (line.isupper() or line.endswith(':')):
-                html += f'<h4 class="text-[5px] font-bold text-gray-200 uppercase mt-1 mb-0">{line}</h4>'
+                html += f'<h4 style="font-size: 8px !important; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-top: 4px; margin-bottom: 0;">{line}</h4>'
             else:
-                html += f'<p class="text-[5px] text-gray-200 leading-tight mb-0">{line}</p>'
+                html += f'<p style="font-size: 8px !important; color: #9ca3af; line-height: 1.2; margin-bottom: 2px;">{line}</p>'
         return html
 
     tnc_section = ""
     if template.get("terms_and_conditions"):
         tnc_section = f"""
-        <div class="mt-4 pt-2 border-t border-gray-50">
-            <h3 class="text-[5px] font-bold text-gray-200 uppercase tracking-widest mb-0.5">Terms & Conditions</h3>
-            <div class="tnc-content">{process_notes(template["terms_and_conditions"])}</div>
+        <div style="margin-top: 24px; padding-top: 8px; border-top: 1px solid #f3f4f6;">
+            <h3 style="font-size: 8px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;">Terms & Conditions</h3>
+            <div>{process_notes(template["terms_and_conditions"])}</div>
         </div>
         """
 
     disclaimer_section = ""
     if template.get("disclaimer"):
         disclaimer_section = f"""
-        <div class="mt-1 pt-1 border-t border-gray-50">
-            <h3 class="text-[5px] font-bold text-gray-200 uppercase tracking-widest mb-0.5">Notice</h3>
-            <div class="tnc-content">{process_notes(template["disclaimer"])}</div>
+        <div style="margin-top: 8px; padding-top: 4px; border-top: 1px solid #f3f4f6;">
+            <h3 style="font-size: 8px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;">Notice</h3>
+            <div>{process_notes(template["disclaimer"])}</div>
         </div>
         """
 
@@ -77,39 +78,39 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
         </style>
     </head>
     <body class="bg-white antialiased">
-        <div class="main-container w-full max-w-2xl mx-auto min-h-screen p-4 sm:p-6 md:p-8">
+        <div class="w-full max-w-4xl mx-auto min-h-screen px-2 py-4 sm:px-6 md:p-12">
             
-            <!-- Header: Mobile Optimized (Stacked on small, Row on med) -->
-            <div class="flex flex-col md:flex-row justify-between items-start border-b border-gray-900 pb-6 mb-6 gap-4">
+            <!-- Header: Mobile Optimized -->
+            <div class="flex flex-col md:flex-row justify-between items-start border-b-4 border-gray-900 pb-6 mb-8 gap-4">
                 <div class="w-full">
                     {logo_html}
-                    <h1 class="text-2xl font-extrabold tracking-tight mb-1 uppercase">{template.get('company_name', 'Company Name')}</h1>
-                    <div class="text-[10px] text-gray-500 font-medium uppercase tracking-wider leading-relaxed">
+                    <h1 class="text-4xl font-extrabold tracking-tighter mb-1 uppercase">{template.get('company_name', 'Company Name')}</h1>
+                    <div class="text-[11px] text-gray-500 font-semibold uppercase tracking-widest leading-relaxed">
                         <p>{template.get('company_address', '').replace('\n', ' • ')}</p>
-                        <p class="mt-0.5">
-                            {f'T: {template.get("company_phone")}' if template.get('company_phone') else ''}
-                            {f' • E: {template.get("company_email")}' if template.get('company_email') else ''}
+                        <p class="mt-1">
+                            {f'TEL: {template.get("company_phone")}' if template.get('company_phone') else ''}
+                            {f' • EMAIL: {template.get("company_email")}' if template.get('company_email') else ''}
                         </p>
-                        {f'<p class="font-bold text-gray-900 mt-0.5">SST ID: {template.get("sst_registration_no")}</p>' if template.get('sst_registration_no') else ''}
+                        {f'<p class="text-gray-900 font-black mt-1">SST ID: {template.get("sst_registration_no")}</p>' if template.get('sst_registration_no') else ''}
                     </div>
                 </div>
-                <div class="flex flex-row md:flex-col justify-between md:text-right w-full md:w-auto items-end md:items-end border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0 border-gray-100">
+                <div class="flex flex-row md:flex-col justify-between md:text-right w-full md:w-auto items-baseline md:items-end border-t-2 md:border-t-0 pt-4 md:pt-0 mt-4 md:mt-0 border-gray-900">
                     <div class="text-left md:text-right">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Invoice</p>
-                        <p class="text-lg font-bold">#{invoice.get('invoice_number')}</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Invoice</p>
+                        <p class="text-3xl font-black tracking-tighter">#{invoice.get('invoice_number')}</p>
                     </div>
-                    <div class="text-right mt-0 md:mt-4">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</p>
-                        <p class="text-sm font-bold">{invoice.get('invoice_date')}</p>
+                    <div class="text-right mt-0 md:mt-6">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Date</p>
+                        <p class="text-lg font-bold">{invoice.get('invoice_date')}</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Client Info: Compact -->
-            <div class="mb-8">
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Billed To</p>
-                <p class="text-lg font-extrabold uppercase leading-tight">{invoice.get('customer_name_snapshot')}</p>
-                <p class="text-[11px] text-gray-500 mt-0.5 leading-normal italic">{invoice.get('customer_address_snapshot') or 'No address provided'}</p>
+            <!-- Client Info -->
+            <div class="mb-12">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-2">Billed To</p>
+                <p class="text-3xl font-extrabold uppercase leading-none tracking-tighter">{invoice.get('customer_name_snapshot')}</p>
+                <p class="text-sm text-gray-500 mt-2 leading-relaxed italic max-w-md">{invoice.get('customer_address_snapshot') or 'No address provided'}</p>
             </div>
 
             <!-- Items: Zero-Waste Table -->
