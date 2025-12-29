@@ -31,12 +31,15 @@ def get_railway_database_url() -> str:
         # Local development fallback
         return "postgresql://postgres:postgres@localhost:5432/ee_invoicing"
 
-    # DEFENSIVE: Remove accidental whitespace/quotes
-    url = url.strip().strip("'").strip('"')
+    # DEFENSIVE: Remove accidental whitespace/quotes/garbage from copy-pasting
+    url = url.strip().strip("'").strip('"').strip('\\').strip()
     
     # SQLALCHEMY COMPATIBILITY: Fix 'postgres://' to 'postgresql://'
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
+    
+    # Log sanitized URL length for verification
+    logger.info(f"Database URL validated (length: {len(url)})")
     
     return url
 

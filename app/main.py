@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from app.config import settings
 from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration
 from contextlib import asynccontextmanager
@@ -66,6 +66,15 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Global Exception Handler to prevent raw text "Internal Server Error"
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"GLOBAL ERROR: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__, "status": "error"}
+    )
 
 # CORS middleware
 app.add_middleware(
@@ -389,7 +398,14 @@ async def admin_login():
                         body: JSON.stringify({ whatsapp_number: phone })
                     });
                     
-                    const data = await response.json();
+                    const text = await response.text();
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        showError('Server Error: ' + text.substring(0, 100));
+                        return;
+                    }
 
                     if (response.ok) {
                         document.getElementById('step-1').classList.add('hidden');
