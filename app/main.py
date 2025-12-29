@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from app.config import settings
-from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration
+from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration, demo
 from contextlib import asynccontextmanager
 import os
 import sys
@@ -36,10 +36,11 @@ async def initialize_db():
             import app.models.customer
             import app.models.invoice
             import app.models.template
+            import app.models.package
             
             # Explicitly reference models to avoid 'unused' removal by linters
             _ = [app.models.auth.AuthUser, app.models.customer.Customer, 
-                 app.models.invoice.InvoiceNew, app.models.template.InvoiceTemplate]
+                 app.models.invoice.InvoiceNew, app.models.template.InvoiceTemplate, app.models.package.Package]
             
             await asyncio.to_thread(Base.metadata.create_all, bind=engine)
             logger.info("Database schema is up to date.")
@@ -98,6 +99,7 @@ app.include_router(invoices.router)
 app.include_router(old_invoices.router)
 app.include_router(public_invoice.router)
 app.include_router(migration.router)
+app.include_router(demo.router)
 
 
 # Health check

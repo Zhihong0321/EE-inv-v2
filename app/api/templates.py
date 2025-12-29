@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.database import get_db
-from app.schemas.template import TemplateCreate, TemplateUpdate, TemplateResponse
+from app.schemas.template import TemplateCreate, TemplateUpdate, TemplateResponse, TemplateListResponse
 from app.repositories.template_repo import TemplateRepository
 from app.middleware.auth import get_current_user
 from app.models.auth import AuthUser
@@ -34,6 +34,7 @@ def create_template(
         bank_account_name=template_data.bank_account_name,
         logo_url=logo_url_str,
         terms_and_conditions=template_data.terms_and_conditions,
+        disclaimer=template_data.disclaimer,
         is_default=template_data.is_default,
         created_by=current_user.user_id,
     )
@@ -59,7 +60,7 @@ def get_template(
     return template
 
 
-@router.get("", response_model=dict)
+@router.get("", response_model=TemplateListResponse)
 def list_templates(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),

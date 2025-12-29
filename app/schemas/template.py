@@ -15,6 +15,7 @@ class TemplateCreate(BaseModel):
     bank_account_name: Optional[str] = None
     logo_url: Optional[HttpUrl] = None
     terms_and_conditions: Optional[str] = None
+    disclaimer: Optional[str] = None
     is_default: Optional[bool] = False
 
 
@@ -30,6 +31,7 @@ class TemplateUpdate(BaseModel):
     bank_account_name: Optional[str] = None
     logo_url: Optional[HttpUrl] = None
     terms_and_conditions: Optional[str] = None
+    disclaimer: Optional[str] = None
     active: Optional[bool] = None
     is_default: Optional[bool] = None
 
@@ -47,6 +49,7 @@ class TemplateResponse(BaseModel):
     bank_account_name: Optional[str] = None
     logo_url: Optional[str] = None
     terms_and_conditions: Optional[str] = None
+    disclaimer: Optional[str] = None
     active: bool
     is_default: bool
     created_at: datetime
@@ -54,3 +57,10 @@ class TemplateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TemplateListResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    templates: list[TemplateResponse]
