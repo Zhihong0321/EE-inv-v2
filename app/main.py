@@ -476,6 +476,357 @@ async def admin_login():
     """
 
 
+@app.get("/admin/templates", response_class=HTMLResponse)
+async def admin_templates():
+    """Admin Templates Management"""
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>EE Invoicing - Manage Templates</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <nav class="bg-blue-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <a href="/admin/" class="text-xl font-bold hover:text-blue-100">EE Invoicing System</a>
+                <div>
+                    <a href="/admin/" class="mr-4 hover:underline">Dashboard</a>
+                    <button onclick="logout()" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">Manage Templates</h1>
+                <button onclick="openModal()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center">
+                    <i class="fas fa-plus mr-2"></i> New Template
+                </button>
+            </div>
+
+            <div id="loading" class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+            </div>
+
+            <div id="templates-list" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
+                <!-- Templates will be injected here -->
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 id="modal-title" class="text-xl font-bold">New Template</h2>
+                        <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <form id="template-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="bubble_id">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Template Name *</label>
+                                <input type="text" id="template_name" required class="w-full border p-2 rounded mt-1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Company Name *</label>
+                                <input type="text" id="company_name" required class="w-full border p-2 rounded mt-1">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Company Address *</label>
+                            <textarea id="company_address" required rows="3" class="w-full border p-2 rounded mt-1"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Phone</label>
+                                <input type="text" id="company_phone" class="w-full border p-2 rounded mt-1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Email</label>
+                                <input type="email" id="company_email" class="w-full border p-2 rounded mt-1">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">SST Registration No *</label>
+                                <input type="text" id="sst_registration_no" required pattern="^ST\\d{10,12}$" 
+                                    placeholder="ST1234567890" title="Format: ST followed by 10-12 digits"
+                                    class="w-full border p-2 rounded mt-1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Logo URL</label>
+                                <input type="url" id="logo_url" class="w-full border p-2 rounded mt-1">
+                            </div>
+                        </div>
+
+                        <div class="border-t pt-4 mt-4">
+                            <h3 class="font-medium mb-2">Bank Details</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Bank Name</label>
+                                    <input type="text" id="bank_name" class="w-full border p-2 rounded mt-1">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Account No</label>
+                                    <input type="text" id="bank_account_no" class="w-full border p-2 rounded mt-1">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Account Name</label>
+                                    <input type="text" id="bank_account_name" class="w-full border p-2 rounded mt-1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Terms & Conditions</label>
+                            <textarea id="terms_and_conditions" rows="3" class="w-full border p-2 rounded mt-1"></textarea>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" id="is_default" class="mr-2">
+                            <label for="is_default" class="text-sm font-medium text-gray-700">Set as Default Template</label>
+                        </div>
+
+                        <div class="flex justify-end pt-4 space-x-3">
+                            <button type="button" onclick="closeModal()" class="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Template</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const API_BASE = '/api/v1';
+            let token = localStorage.getItem('access_token');
+
+            if (!token) window.location.href = '/admin/login';
+
+            // Fields to map for form
+            const fields = [
+                'template_name', 'company_name', 'company_address', 'company_phone', 
+                'company_email', 'sst_registration_no', 'bank_name', 'bank_account_no', 
+                'bank_account_name', 'logo_url', 'terms_and_conditions', 'is_default'
+            ];
+
+            async function fetchTemplates() {
+                try {
+                    const response = await fetch(`${API_BASE}/templates?limit=100`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to fetch templates');
+                    
+                    const data = await response.json();
+                    renderTemplates(data.templates);
+                } catch (e) {
+                    console.error(e);
+                    alert('Error loading templates');
+                } finally {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('templates-list').classList.remove('hidden');
+                }
+            }
+
+            function renderTemplates(templates) {
+                const container = document.getElementById('templates-list');
+                container.innerHTML = '';
+
+                if (templates.length === 0) {
+                    container.innerHTML = '<p class="col-span-2 text-center text-gray-500">No templates found. Create one to get started.</p>';
+                    return;
+                }
+
+                templates.forEach(t => {
+                    const card = document.createElement('div');
+                    card.className = `bg-white p-6 rounded-lg shadow border-l-4 ${t.is_default ? 'border-green-500' : 'border-gray-300'}`;
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="font-bold text-lg">${t.template_name}</h3>
+                                <p class="text-sm text-gray-500">${t.company_name}</p>
+                            </div>
+                            ${t.is_default ? '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Default</span>' : ''}
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <p><i class="fas fa-map-marker-alt w-5"></i> ${t.company_address.substring(0, 50)}...</p>
+                            <p><i class="fas fa-id-card w-5"></i> ${t.sst_registration_no}</p>
+                            ${t.company_phone ? `<p><i class="fas fa-phone w-5"></i> ${t.company_phone}</p>` : ''}
+                        </div>
+                        <div class="flex justify-end space-x-2 border-t pt-4">
+                            ${!t.is_default ? `
+                                <button onclick="setDefault('${t.bubble_id}')" class="text-sm text-gray-600 hover:text-green-600 px-2 py-1">
+                                    <i class="fas fa-check"></i> Set Default
+                                </button>
+                            ` : ''}
+                            <button onclick='editTemplate(${JSON.stringify(t).replace(/'/g, "&#39;")})' class="text-sm text-blue-600 hover:text-blue-800 px-2 py-1">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button onclick="deleteTemplate('${t.bubble_id}')" class="text-sm text-red-600 hover:text-red-800 px-2 py-1">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            function openModal(isEdit = false) {
+                document.getElementById('modal').classList.remove('hidden');
+                document.getElementById('modal').classList.add('flex');
+                document.getElementById('modal-title').textContent = isEdit ? 'Edit Template' : 'New Template';
+                if (!isEdit) {
+                    document.getElementById('template-form').reset();
+                    document.getElementById('bubble_id').value = '';
+                }
+            }
+
+            function closeModal() {
+                document.getElementById('modal').classList.add('hidden');
+                document.getElementById('modal').classList.remove('flex');
+            }
+
+            function editTemplate(template) {
+                openModal(true);
+                document.getElementById('bubble_id').value = template.bubble_id;
+                
+                fields.forEach(f => {
+                    const el = document.getElementById(f);
+                    if (el) {
+                        if (el.type === 'checkbox') {
+                            el.checked = template[f];
+                        } else {
+                            el.value = template[f] || '';
+                        }
+                    }
+                });
+            }
+
+            async function handleFormSubmit(e) {
+                e.preventDefault();
+                const bubbleId = document.getElementById('bubble_id').value;
+                const isEdit = !!bubbleId;
+                
+                const payload = {};
+                fields.forEach(f => {
+                    const el = document.getElementById(f);
+                    if (el.type === 'checkbox') {
+                        payload[f] = el.checked;
+                    } else if (el.value) {
+                        payload[f] = el.value;
+                    }
+                });
+
+                // Clean empty strings for optional fields
+                ['logo_url', 'company_email', 'company_phone', 'bank_name', 'bank_account_no', 'bank_account_name', 'terms_and_conditions'].forEach(k => {
+                    if (payload[k] === '') delete payload[k];
+                });
+
+                try {
+                    const url = isEdit ? `${API_BASE}/templates/${bubbleId}` : `${API_BASE}/templates`;
+                    const method = isEdit ? 'PUT' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to save');
+                    }
+
+                    closeModal();
+                    fetchTemplates();
+                } catch (err) {
+                    alert(err.message);
+                }
+            }
+
+            async function deleteTemplate(id) {
+                if (!confirm('Are you sure you want to delete this template?')) return;
+                
+                try {
+                    const response = await fetch(`${API_BASE}/templates/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to delete');
+                    fetchTemplates();
+                } catch (err) {
+                    alert(err.message);
+                }
+            }
+
+            async function setDefault(id) {
+                try {
+                    const response = await fetch(`${API_BASE}/templates/${id}/set-default`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to set default');
+                    fetchTemplates();
+                } catch (err) {
+                    alert(err.message);
+                }
+            }
+
+            function logout() {
+                localStorage.removeItem('access_token');
+                window.location.href = '/';
+            }
+
+            fetchTemplates();
+        </script>
+    </body>
+    </html>
+    """
+
+@app.get("/admin/invoices", response_class=HTMLResponse)
+async def admin_invoices():
+    """Placeholder for Invoice Management"""
+    return """
+    <!DOCTYPE html>
+    <html><head><title>Invoices</title><meta http-equiv="refresh" content="0; url=/admin/" /></head>
+    <body><script>alert("Invoice management coming soon!"); window.location.href="/admin/";</script></body></html>
+    """
+
+@app.get("/admin/customers", response_class=HTMLResponse)
+async def admin_customers():
+    """Placeholder for Customer Management"""
+    return """
+    <!DOCTYPE html>
+    <html><head><title>Customers</title><meta http-equiv="refresh" content="0; url=/admin/" /></head>
+    <body><script>alert("Customer management coming soon!"); window.location.href="/admin/";</script></body></html>
+    """
+
+@app.get("/admin/migration", response_class=HTMLResponse)
+async def admin_migration():
+    """Placeholder for Migration Tool"""
+    return """
+    <!DOCTYPE html>
+    <html><head><title>Migration</title><meta http-equiv="refresh" content="0; url=/admin/" /></head>
+    <body><script>alert("Migration tool coming soon!"); window.location.href="/admin/";</script></body></html>
+    """
+
 if __name__ == "__main__":
     import uvicorn
     import os
