@@ -47,18 +47,18 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
     tnc_section = ""
     if template.get("terms_and_conditions"):
         tnc_section = f"""
-        <div style="margin-top: 16px; padding-top: 4px; border-top: 1px solid #f3f4f6;">
-            <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Terms & Conditions</h3>
-            <div>{process_notes(template["terms_and_conditions"])}</div>
+        <div class="tnc-container" style="margin-top: 16px; padding-top: 4px; border-top: 1px solid #f3f4f6;">
+            <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db !important; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Terms & Conditions</h3>
+            <div class="tnc-content">{template["terms_and_conditions"]}</div>
         </div>
         """
 
     disclaimer_section = ""
     if template.get("disclaimer"):
         disclaimer_section = f"""
-        <div style="margin-top: 4px; padding-top: 2px; border-top: 1px solid #f3f4f6;">
-            <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Notice</h3>
-            <div>{process_notes(template["disclaimer"])}</div>
+        <div class="tnc-container" style="margin-top: 4px; padding-top: 2px; border-top: 1px solid #f3f4f6;">
+            <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db !important; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Notice</h3>
+            <div class="tnc-content">{template["disclaimer"]}</div>
         </div>
         """
 
@@ -72,9 +72,14 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
         <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-            body {{ font-family: 'Open Sans', sans-serif; color: #111827; -webkit-tap-highlight-color: transparent; }}
-            .tnc-content p {{ margin-bottom: 2px; }}
-            @media print {{ body {{ background: white; }} .main-container {{ width: 100% !important; max-width: none !important; padding: 0 !important; box-shadow: none !important; }} }}
+            body { font-family: 'Open Sans', sans-serif; color: #111827; -webkit-tap-highlight-color: transparent; }
+            /* FORCE ALL TNC CHILDREN TO 6PX TO PREVENT BROWSER OVERRIDES */
+            .tnc-container, .tnc-container *, .tnc-container p, .tnc-container div, .tnc-container h1, .tnc-container h2, .tnc-container h3, .tnc-container h4, .tnc-container span { 
+                font-size: 6px !important; 
+                line-height: 1.2 !important;
+                color: #9ca3af !important;
+            }
+            @media print { body { background: white; } .main-container { width: 100% !important; max-width: none !important; padding: 0 !important; box-shadow: none !important; } }
         </style>
     </head>
     <body class="bg-white antialiased">
