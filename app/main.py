@@ -3,11 +3,39 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine, Base, connect_with_retry
 from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration
 from contextlib import asynccontextmanager
 import os
 import sys
+import asyncio
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+async def initialize_db():
+    """Background task to initialize DB without blocking app startup"""
+    if os.getenv("SKIP_DB_INIT"):
+        logger.info("Skipping database initialization (SKIP_DB_INIT set)")
+        return
+
+    # Wait for connection with retry
+    if await asyncio.to_thread(connect_with_retry, max_retries=10, delay=2):
+        try:
+            logger.info("Creating database tables...")
+            # Import models to ensure they are registered with Base
+            from app.models.auth import AuthUser
+            from app.models.customer import Customer
+            from app.models.invoice import InvoiceNew
+            from app.models.template import InvoiceTemplate
+            
+            await asyncio.to_thread(Base.metadata.create_all, bind=engine)
+            logger.info("Database tables created successfully.")
+        except Exception as e:
+            logger.error(f"Failed to create database tables: {e}")
+    else:
+        logger.error("Could not initialize database: Connection failed after retries.")
 
 # Create database tables
 @asynccontextmanager
@@ -19,14 +47,9 @@ async def lifespan(app: FastAPI):
     import time
     app.state.start_time = time.time()
     
-    if not os.getenv("SKIP_DB_INIT"):
-        try:
-            print("Initializing database...")
-            Base.metadata.create_all(bind=engine)
-            print("Database initialized successfully.")
-        except Exception as e:
-            print(f"CRITICAL: Database initialization failed: {e}")
-            # We don't raise here so the app can still start and show debug info
+    # Start DB initialization in background
+    asyncio.create_task(initialize_db())
+    
     yield
 
 # Create FastAPI app
