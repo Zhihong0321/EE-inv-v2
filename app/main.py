@@ -120,6 +120,43 @@ async def sniper_debug(request: Request):
     }
 
 
+# Admin creation endpoint (Security: should be disabled or protected after first use)
+@app.get("/api/v1/setup-admin/{whatsapp_number}")
+def setup_admin(whatsapp_number: str):
+    """Seed the first admin user via WhatsApp number"""
+    from app.database import SessionLocal
+    from app.models.auth import AuthUser
+    import uuid
+
+    db = SessionLocal()
+    try:
+        # Check if user already exists
+        user = db.query(AuthUser).filter(AuthUser.whatsapp_number == whatsapp_number).first()
+        if user:
+            user.role = "admin"
+            user.active = True
+            db.commit()
+            return {"message": f"User {whatsapp_number} updated to admin"}
+
+        # Create new admin user
+        new_admin = AuthUser(
+            user_id=str(uuid.uuid4()),
+            whatsapp_number=whatsapp_number,
+            whatsapp_formatted=f"+{whatsapp_number}",
+            name="Super Admin",
+            role="admin",
+            active=True,
+            app_permissions=["*"]
+        )
+        db.add(new_admin)
+        db.commit()
+        return {"message": f"Super Admin {whatsapp_number} created successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
 # Root redirect to admin
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -213,7 +250,7 @@ async def admin_dashboard():
             async function loadDashboard() {
                 // Check auth
                 if (!token) {
-                    window.location.href = '/admin/login.html';
+                    window.location.href = '/admin/login';
                     return;
                 }
 
