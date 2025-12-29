@@ -64,9 +64,10 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Invoice {invoice.get('invoice_number')}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-            body {{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }}
+            body {{ font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif; }}
             .no-margin-blocks > div {{ margin-bottom: 0; }}
         </style>
     </head>
