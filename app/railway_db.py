@@ -15,23 +15,29 @@ from app.config import settings
 def get_railway_database_url() -> str:
     """
     Get database URL for Railway using internal networking only.
-    
-    Priority:
-    1. DATABASE_PRIVATE_URL (Explicit internal)
-    2. DATABASE_URL (Railway default internal)
+    Includes defensive cleaning for copy-paste typos.
     """
+    url = None
+
     # 1. Try explicit private URL first
     private_url = os.getenv("DATABASE_PRIVATE_URL")
     if private_url:
-        return private_url
-
+        url = private_url
     # 2. Try the default DATABASE_URL
-    if settings.DATABASE_URL:
-        return settings.DATABASE_URL
-    
-    env_db_url = os.getenv("DATABASE_URL")
-    if env_db_url:
-        return env_db_url
+    elif settings.DATABASE_URL:
+        url = settings.DATABASE_URL
+    else:
+        url = os.getenv("DATABASE_URL")
+
+    if url:
+        # DEFENSIVE: Remove accidental whitespace/quotes from copy-pasting
+        url = url.strip().strip("'").strip('"')
+        
+        # SQLALCHEMY COMPATIBILITY: Fix 'postgres://' to 'postgresql://'
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        
+        return url
 
     # Final fallback for local development
     return "postgresql://postgres:postgres@localhost:5432/ee_invoicing"
