@@ -3,13 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from app.config import settings
-from app.database import engine, Base, connect_with_retry
 from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration
 from contextlib import asynccontextmanager
 import os
 import sys
 import asyncio
 import logging
+
+# Lazy imports for DB to prevent import-time crashes
+def get_db_resources():
+    from app.database import engine, Base, connect_with_retry, SessionLocal
+    return engine, Base, connect_with_retry, SessionLocal
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -19,6 +23,8 @@ async def initialize_db():
     if os.getenv("SKIP_DB_INIT"):
         logger.info("Skipping database initialization (SKIP_DB_INIT set)")
         return
+
+    engine, Base, connect_with_retry, _ = get_db_resources()
 
     # Wait for connection with retry
     if await asyncio.to_thread(connect_with_retry, max_retries=10, delay=2):
@@ -37,7 +43,7 @@ async def initialize_db():
     else:
         logger.error("Could not initialize database: Connection failed after retries.")
 
-# Create database tables
+# Lifespan context manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -84,7 +90,7 @@ app.include_router(migration.router)
 @app.get("/api/v1/health")
 def health_check(response: Response):
     """Health check endpoint"""
-    from app.database import check_database_health
+    from app.railway_db import check_database_health
 
     db_health = check_database_health()
     

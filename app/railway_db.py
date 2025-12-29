@@ -60,25 +60,31 @@ def create_railway_engine():
         }
     )
 
-# Singleton engine instance
+# Singleton instances
 _engine = None
+_SessionLocal = None
 
 def get_engine():
+    """Lazy engine initialization to prevent import-time crashes."""
     global _engine
     if _engine is None:
         _engine = create_railway_engine()
     return _engine
 
+def get_session_local():
+    """Lazy session initialization."""
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+    return _SessionLocal
+
 def connect_with_retry(max_retries=5, delay=3):
-    """
-    Deep Root Cause Fix: Exponential backoff for internal DNS/Network lag.
-    Ensures the app waits for the Railway private network to stabilize.
-    """
-    engine = get_engine()
+    """Exponential backoff for internal DNS/Network lag."""
     last_error = None
-    
     for attempt in range(max_retries):
         try:
+            # We wrap get_engine in try/except here to prevent boot crash
+            engine = get_engine()
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
                 logger.info("Database connection established successfully.")
@@ -86,20 +92,17 @@ def connect_with_retry(max_retries=5, delay=3):
         except Exception as e:
             last_error = e
             wait = delay * (attempt + 1)
-            logger.warning(f"Database connection attempt {attempt + 1} failed. Retrying in {wait}s... Error: {str(e)[:100]}")
+            logger.warning(f"DB Connection attempt {attempt + 1} failed. Retrying in {wait}s...")
             time.sleep(wait)
-            
-    logger.error(f"Failed to connect to database after {max_retries} attempts: {last_error}")
+    logger.error(f"Failed to connect: {last_error}")
     return False
-
-# Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
 
 # Base class for models
 Base = declarative_base()
 
 def get_db():
-    db = SessionLocal()
+    Session = get_session_local()
+    db = Session()
     try:
         yield db
     finally:
