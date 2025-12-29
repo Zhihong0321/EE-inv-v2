@@ -275,6 +275,7 @@ async def admin_dashboard():
                         <a href="/admin/templates" class="block bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Manage Templates</a>
                         <a href="/admin/customers" class="block bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">Manage Customers</a>
                         <a href="/admin/migration" class="block bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded">Data Migration</a>
+                        <a href="/demo/generate-invoice" target="_blank" class="block bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded">Preview Demo Invoice</a>
                     </div>
                 </div>
 
@@ -505,9 +506,14 @@ async def admin_templates():
         <div class="container mx-auto p-6">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800">Manage Templates</h1>
-                <button onclick="openModal()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center">
-                    <i class="fas fa-plus mr-2"></i> New Template
-                </button>
+                <div class="flex space-x-2">
+                    <a href="/demo/generate-invoice" target="_blank" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded flex items-center">
+                        <i class="fas fa-eye mr-2"></i> Preview Demo
+                    </a>
+                    <button onclick="openModal()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center">
+                        <i class="fas fa-plus mr-2"></i> New Template
+                    </button>
+                </div>
             </div>
 
             <div id="loading" class="text-center py-8">
@@ -562,8 +568,8 @@ async def admin_templates():
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">SST Registration No *</label>
-                                <input type="text" id="sst_registration_no" required pattern="^ST\\d{10,12}$" 
+                                <label class="block text-sm font-medium text-gray-700">SST Registration No</label>
+                                <input type="text" id="sst_registration_no" 
                                     placeholder="ST1234567890" title="Format: ST followed by 10-12 digits"
                                     class="w-full border p-2 rounded mt-1">
                             </div>
