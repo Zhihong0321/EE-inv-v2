@@ -16,6 +16,9 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for startup and shutdown events.
     Handles database initialization gracefully.
     """
+    import time
+    app.state.start_time = time.time()
+    
     if not os.getenv("SKIP_DB_INIT"):
         try:
             print("Initializing database...")
@@ -62,13 +65,21 @@ def health_check(response: Response):
 
     db_health = check_database_health()
     
-    if not db_health:
+    # If we are in Railway and DB is not ready, we still return 200 during the first 2 minutes
+    # to allow the internal network to stabilize without Railway killing the container.
+    # After that, we return 503 if the DB is still down.
+    import time
+    app_start_time = getattr(app.state, "start_time", time.time())
+    uptime = time.time() - app_start_time
+    
+    if not db_health and uptime > 120:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return {
-        "status": "healthy" if db_health else "unhealthy",
+        "status": "healthy" if (db_health or uptime <= 120) else "unhealthy",
         "version": "1.0.0",
         "database": "connected" if db_health else "disconnected",
+        "uptime": int(uptime)
     }
 
 

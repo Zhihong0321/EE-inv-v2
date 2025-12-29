@@ -14,38 +14,26 @@ from app.config import settings
 
 def get_railway_database_url() -> str:
     """
-    Get database URL for Railway with automatic internal/public fallback.
-
-    Railway provides several environment variables for database connection:
-    1. DATABASE_URL: Usually internal (e.g. *.railway.internal)
-    2. DATABASE_PRIVATE_URL: Specifically for internal connection
-    3. DATABASE_PUBLIC_URL: For external connection (as fallback)
+    Get database URL for Railway using internal networking only.
+    
+    Priority:
+    1. DATABASE_PRIVATE_URL (Explicit internal)
+    2. DATABASE_URL (Railway default internal)
     """
-    # 1. Try explicit private URL first (most secure/performant)
+    # 1. Try explicit private URL first
     private_url = os.getenv("DATABASE_PRIVATE_URL")
     if private_url:
-        print("Using DATABASE_PRIVATE_URL for connection")
         return private_url
 
-    # 2. Try the default DATABASE_URL (which Railway usually sets to internal)
+    # 2. Try the default DATABASE_URL
     if settings.DATABASE_URL:
-        print("Using DATABASE_URL for connection")
         return settings.DATABASE_URL
     
     env_db_url = os.getenv("DATABASE_URL")
     if env_db_url:
-        print("Using environment DATABASE_URL for connection")
         return env_db_url
 
-    # 3. Fallback to DATABASE_PUBLIC_URL if internal fails
-    # This is a lifesaver if Railway's internal DNS is flaky
-    public_url = os.getenv("DATABASE_PUBLIC_URL")
-    if public_url:
-        print("WARNING: Using DATABASE_PUBLIC_URL as fallback (internal connection not found)")
-        return public_url
-
-    # 4. Final fallback for local development
-    print("Using local development database fallback")
+    # Final fallback for local development
     return "postgresql://postgres:postgres@localhost:5432/ee_invoicing"
 
 
