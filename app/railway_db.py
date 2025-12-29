@@ -13,12 +13,17 @@ logger = logging.getLogger(__name__)
 def get_railway_database_url() -> str:
     """
     Get database URL for Railway using internal networking only.
-    Includes defensive cleaning for copy-paste typos.
+    Priority: OS Environment > Pydantic Settings > Local Fallback
     """
-    url = os.getenv("DATABASE_PRIVATE_URL") or os.getenv("DATABASE_URL") or settings.DATABASE_URL
+    # 1. Try OS Environment variables first (Railway's primary injection method)
+    url = os.environ.get("DATABASE_PRIVATE_URL") or os.environ.get("DATABASE_URL")
+    
+    # 2. Try Pydantic settings
+    if not url:
+        url = settings.DATABASE_PRIVATE_URL or settings.DATABASE_URL
 
     if not url:
-        # Final fallback for local development ONLY if no environment is set
+        # Final fallback for local development ONLY
         return "postgresql://postgres:postgres@localhost:5432/ee_invoicing"
 
     # DEFENSIVE: Remove accidental whitespace/quotes

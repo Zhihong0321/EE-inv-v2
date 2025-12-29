@@ -3,8 +3,9 @@ from typing import Optional, List
 
 
 class Settings(BaseSettings):
-    # Database
+    # Database - Do NOT provide a default here to ensure Railway variables are used
     DATABASE_URL: Optional[str] = None
+    DATABASE_PRIVATE_URL: Optional[str] = None
 
     # JWT
     JWT_SECRET_KEY: str
