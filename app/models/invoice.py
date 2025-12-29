@@ -59,7 +59,7 @@ class InvoiceNew(Base):
     share_access_count = Column(Integer, default=0)
 
     # Reference to old invoice
-    linked_old_invoice = Column(String, ForeignKey("invoice.bubble_id"))
+    linked_old_invoice = Column(String)  # Store bubble_id reference to legacy invoice (no FK constraint)
 
     # Migration status
     migration_status = Column(String, default="new")  # new, migrated, processed
