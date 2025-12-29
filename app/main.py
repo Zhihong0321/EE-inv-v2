@@ -1,23 +1,37 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from app.config import settings
 from app.database import engine, Base
 from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration
+from contextlib import asynccontextmanager
+import os
+import sys
 
 # Create database tables
-# Only create tables if not in Railway environment
-# Skip for local testing to avoid database connection errors
-import os
-if not os.getenv("SKIP_DB_INIT"):
-    Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events.
+    Handles database initialization gracefully.
+    """
+    if not os.getenv("SKIP_DB_INIT"):
+        try:
+            print("Initializing database...")
+            Base.metadata.create_all(bind=engine)
+            print("Database initialized successfully.")
+        except Exception as e:
+            print(f"CRITICAL: Database initialization failed: {e}")
+            # We don't raise here so the app can still start and show debug info
+    yield
 
 # Create FastAPI app
 app = FastAPI(
     title="EE Invoicing System",
     description="Modern invoicing system with WhatsApp authentication",
     version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware
@@ -42,11 +56,14 @@ app.include_router(migration.router)
 
 # Health check
 @app.get("/api/v1/health")
-def health_check():
+def health_check(response: Response):
     """Health check endpoint"""
     from app.database import check_database_health
 
     db_health = check_database_health()
+    
+    if not db_health:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return {
         "status": "healthy" if db_health else "unhealthy",
@@ -55,43 +72,41 @@ def health_check():
     }
 
 
-# Root path health check (for Railway default health check)
-@app.get("/")
-def root_health_check():
-    """Root path health check for Railway"""
-    from app.database import check_database_health
+# Sniper-level debug endpoint
+@app.get("/api/v1/debug")
+async def sniper_debug(request: Request):
+    """Comprehensive debug endpoint to investigate Railway deployment issues"""
+    from app.database import check_database_health, get_connection_info
+    import socket
 
     db_health = check_database_health()
+    db_info = get_connection_info()
+    
+    # Check DNS resolution for railway.internal
+    internal_dns = "unknown"
+    try:
+        internal_dns = socket.gethostbyname("postgres.railway.internal")
+    except Exception as e:
+        internal_dns = f"failed: {str(e)}"
 
     return {
-        "status": "healthy" if db_health else "unhealthy",
-        "version": "1.0.0",
-        "database": "connected" if db_health else "disconnected",
+        "app_status": "online",
+        "python": sys.version,
+        "environment": {
+            "PORT": os.getenv("PORT"),
+            "RAILWAY_ENVIRONMENT": os.getenv("RAILWAY_ENVIRONMENT"),
+            "RAILWAY_STATIC_URL": os.getenv("RAILWAY_STATIC_URL"),
+            "HAS_DATABASE_URL": bool(os.getenv("DATABASE_URL")),
+            "DATABASE_URL_PREVIEW": os.getenv("DATABASE_URL")[:15] + "..." if os.getenv("DATABASE_URL") else None,
+            "HOSTNAME": socket.gethostname(),
+            "INTERNAL_DNS_CHECK": internal_dns
+        },
+        "database": {
+            "connected": db_health,
+            "info": db_info
+        },
+        "headers": dict(request.headers)
     }
-
-
-# Alternative health check paths
-@app.get("/health")
-def health_path_check():
-    """/health path check for Railway"""
-    from app.database import check_database_health
-
-    db_health = check_database_health()
-
-    return {
-        "status": "healthy" if db_health else "unhealthy",
-        "version": "1.0.0",
-        "database": "connected" if db_health else "disconnected",
-    }
-
-
-# Database connection info
-@app.get("/api/v1/db-info")
-def db_info():
-    """Get database connection information (sanitized)"""
-    from app.database import get_connection_info
-
-    return get_connection_info()
 
 
 # Root redirect to admin
