@@ -435,17 +435,25 @@ async def admin_login():
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ whatsapp_number: phone, otp_code: otp, name: name })
                     });
-                    const data = await response.json();
+                    
+                    const text = await response.text();
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        showError('Verify Server Error: ' + text.substring(0, 100));
+                        return;
+                    }
 
                     if (response.ok && data.success) {
                         localStorage.setItem('access_token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
                         window.location.href = '/admin/';
                     } else {
-                        showError(data.message || 'Invalid OTP');
+                        showError(data.message || data.detail || 'Invalid OTP');
                     }
                 } catch (e) {
-                    showError('Failed to verify OTP');
+                    showError('Verify Network Error: ' + e.message);
                 }
             }
 
