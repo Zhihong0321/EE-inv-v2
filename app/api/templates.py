@@ -60,7 +60,7 @@ def get_template(
     return template
 
 
-@router.get("", response_model=TemplateListResponse)
+@router.get("", response_model=dict)
 def list_templates(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -80,7 +80,28 @@ def list_templates(
         "total": total,
         "page": (skip // limit) + 1,
         "page_size": limit,
-        "templates": templates,
+        "templates": [
+            {
+                "bubble_id": t.bubble_id,
+                "template_name": t.template_name,
+                "company_name": t.company_name,
+                "company_address": t.company_address,
+                "company_phone": t.company_phone,
+                "company_email": t.company_email,
+                "sst_registration_no": t.sst_registration_no,
+                "bank_name": t.bank_name,
+                "bank_account_no": t.bank_account_no,
+                "bank_account_name": t.bank_account_name,
+                "logo_url": t.logo_url,
+                "terms_and_conditions": t.terms_and_conditions,
+                "disclaimer": t.disclaimer,
+                "active": t.active,
+                "is_default": t.is_default,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+            }
+            for t in templates
+        ],
     }
 
 

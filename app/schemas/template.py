@@ -37,23 +37,23 @@ class TemplateUpdate(BaseModel):
 
 
 class TemplateResponse(BaseModel):
-    bubble_id: str
-    template_name: str
-    company_name: str
-    company_address: str
+    bubble_id: Optional[str] = None
+    template_name: Optional[str] = None
+    company_name: Optional[str] = None
+    company_address: Optional[str] = None
     company_phone: Optional[str] = None
     company_email: Optional[str] = None
-    sst_registration_no: str
+    sst_registration_no: Optional[str] = None
     bank_name: Optional[str] = None
     bank_account_no: Optional[str] = None
     bank_account_name: Optional[str] = None
     logo_url: Optional[str] = None
     terms_and_conditions: Optional[str] = None
     disclaimer: Optional[str] = None
-    active: bool
-    is_default: bool
-    created_at: datetime
-    updated_at: datetime
+    active: Optional[bool] = None
+    is_default: Optional[bool] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
