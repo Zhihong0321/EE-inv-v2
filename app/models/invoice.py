@@ -10,10 +10,10 @@ class InvoiceNew(Base):
     bubble_id = Column(String, unique=True, nullable=False, index=True)
 
     # Template
-    template_id = Column(String, ForeignKey("invoice_template.bubble_id"))
+    template_id = Column(String)  # References invoice_template.bubble_id (no FK - new table)
 
     # Customer
-    customer_id = Column(String, ForeignKey("customer.customer_id"), index=True)
+    customer_id = Column(String, ForeignKey("customer.id"), index=True)
 
     # Customer snapshot
     customer_name_snapshot = Column(String, nullable=False)
