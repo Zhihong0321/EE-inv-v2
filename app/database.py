@@ -12,8 +12,16 @@ from app.railway_db import (
     connect_with_retry
 )
 
-# Shared engine and session
-engine = get_engine()
+# Deep Root Cause Fix: Wrap engine in a lazy proxy to prevent top-level import crashes
+class LazyEngine:
+    def __getattr__(self, name):
+        return getattr(get_engine(), name)
+    def __repr__(self):
+        return repr(get_engine())
+    def __str__(self):
+        return str(get_engine())
+
+engine = LazyEngine()
 
 # Re-export for backward compatibility
 def get_db():

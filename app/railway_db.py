@@ -78,6 +78,10 @@ def get_session_local():
         _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
     return _SessionLocal
 
+def SessionLocal(*args, **kwargs):
+    """Backward compatible wrapper for lazy SessionLocal."""
+    return get_session_local()(*args, **kwargs)
+
 def connect_with_retry(max_retries=5, delay=3):
     """Exponential backoff for internal DNS/Network lag."""
     last_error = None
