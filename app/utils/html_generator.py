@@ -37,18 +37,18 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
         for line in lines:
             line = line.strip()
             if not line: continue
-            # USE INLINE STYLE TO BYPASS BROWSER MINIMUMS AND TAILWIND JIT ISSUES
+            # FORCE 6PX TO MATCH FOOTER TINY TEXT EXACTLY
             if len(line) < 40 and (line.isupper() or line.endswith(':')):
-                html += f'<h4 style="font-size: 8px !important; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-top: 4px; margin-bottom: 0;">{line}</h4>'
+                html += f'<h4 style="font-size: 6px !important; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-top: 3px; margin-bottom: 0;">{line}</h4>'
             else:
-                html += f'<p style="font-size: 8px !important; color: #9ca3af; line-height: 1.2; margin-bottom: 2px;">{line}</p>'
+                html += f'<p style="font-size: 6px !important; color: #9ca3af; line-height: 1.1; margin-bottom: 1px;">{line}</p>'
         return html
 
     tnc_section = ""
     if template.get("terms_and_conditions"):
         tnc_section = f"""
-        <div style="margin-top: 24px; padding-top: 8px; border-top: 1px solid #f3f4f6;">
-            <h3 style="font-size: 8px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;">Terms & Conditions</h3>
+        <div style="margin-top: 16px; padding-top: 4px; border-top: 1px solid #f3f4f6;">
+            <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Terms & Conditions</h3>
             <div>{process_notes(template["terms_and_conditions"])}</div>
         </div>
         """
@@ -56,8 +56,8 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
     disclaimer_section = ""
     if template.get("disclaimer"):
         disclaimer_section = f"""
-        <div style="margin-top: 8px; padding-top: 4px; border-top: 1px solid #f3f4f6;">
-            <h3 style="font-size: 8px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;">Notice</h3>
+        <div style="margin-top: 4px; padding-top: 2px; border-top: 1px solid #f3f4f6;">
+            <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Notice</h3>
             <div>{process_notes(template["disclaimer"])}</div>
         </div>
         """
