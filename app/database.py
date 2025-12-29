@@ -24,8 +24,7 @@ class LazyEngine:
 engine = LazyEngine()
 
 # Re-export for backward compatibility
-def get_db():
-    return get_railway_db()
+get_db = get_railway_db
 
 __all__ = [
     'engine', 
