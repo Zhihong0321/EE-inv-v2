@@ -13,7 +13,7 @@ class InvoiceNew(Base):
     template_id = Column(String)  # References invoice_template.bubble_id (no FK - new table)
 
     # Customer
-    customer_id = Column(String, ForeignKey("customer.id"), index=True)
+    customer_id = Column(Integer, ForeignKey("customer.id"), index=True)
 
     # Customer snapshot
     customer_name_snapshot = Column(String, nullable=False)
