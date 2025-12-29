@@ -125,11 +125,20 @@ async def sniper_debug(request: Request):
 def setup_admin(whatsapp_number: str):
     """Seed the first admin user via WhatsApp number"""
     from app.database import SessionLocal, engine, Base
+    from app.railway_db import get_railway_database_url
     from app.models.auth import AuthUser
     from app.models.customer import Customer
     from app.models.invoice import InvoiceNew
     from app.models.template import InvoiceTemplate
     import uuid
+    import os
+
+    # DEBUG: Print environment info
+    db_url = get_railway_database_url()
+    host = "unknown"
+    if "@" in db_url:
+        host = db_url.split("@")[1].split(":")[0]
+    print(f"DEBUG: Setup endpoint using DB host: {host}")
 
     # Ensure tables are created using the correct engine
     Base.metadata.create_all(bind=engine)

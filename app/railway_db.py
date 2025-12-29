@@ -54,6 +54,12 @@ def create_railway_engine():
     - No SQL logging (security + performance)
     """
     db_url = get_railway_database_url()
+    
+    # Log connection attempt (sanitized)
+    host = "unknown"
+    if "@" in db_url:
+        host = db_url.split("@")[1].split(":")[0]
+    print(f"DEBUG: Attempting database connection to host: {host}")
 
     engine = create_engine(
         db_url,
