@@ -38,16 +38,16 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
             line = line.strip()
             if not line: continue
             if len(line) < 40 and (line.isupper() or line.endswith(':')):
-                html += f'<h4 class="text-[9px] font-bold text-gray-500 uppercase mt-3 mb-0.5">{line}</h4>'
+                html += f'<h4 class="text-[8px] font-bold text-gray-400 uppercase mt-2 mb-0.5">{line}</h4>'
             else:
-                html += f'<p class="text-[9px] text-gray-400 leading-normal mb-1">{line}</p>'
+                html += f'<p class="text-[8px] text-gray-400 leading-normal mb-0.5">{line}</p>'
         return html
 
     tnc_section = ""
     if template.get("terms_and_conditions"):
         tnc_section = f"""
-        <div class="mt-8 pt-4 border-t border-gray-100">
-            <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Terms & Conditions</h3>
+        <div class="mt-6 pt-3 border-t border-gray-50">
+            <h3 class="text-[9px] font-bold text-gray-300 uppercase tracking-widest mb-1">Terms & Conditions</h3>
             <div class="tnc-content">{process_notes(template["terms_and_conditions"])}</div>
         </div>
         """
@@ -55,8 +55,8 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
     disclaimer_section = ""
     if template.get("disclaimer"):
         disclaimer_section = f"""
-        <div class="mt-4 pt-4 border-t border-gray-100">
-            <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Note</h3>
+        <div class="mt-2 pt-2 border-t border-gray-50">
+            <h3 class="text-[9px] font-bold text-gray-300 uppercase tracking-widest mb-1">Notice</h3>
             <div class="tnc-content">{process_notes(template["disclaimer"])}</div>
         </div>
         """
