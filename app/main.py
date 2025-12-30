@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Request, Response, status
+from typing import Optional
+from fastapi import FastAPI, Request, Response, status, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from sqlalchemy.orm import Session
 from app.config import settings
 from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration, demo
+from app.database import get_db
 from contextlib import asynccontextmanager
 import os
 import sys
@@ -37,10 +40,12 @@ async def initialize_db():
             import app.models.invoice
             import app.models.template
             import app.models.package
+            import app.models.voucher
             
             # Explicitly reference models to avoid 'unused' removal by linters
             _ = [app.models.auth.AuthUser, app.models.customer.Customer, 
-                 app.models.invoice.InvoiceNew, app.models.template.InvoiceTemplate, app.models.package.Package]
+                 app.models.invoice.InvoiceNew, app.models.template.InvoiceTemplate, 
+                 app.models.package.Package, app.models.voucher.Voucher]
             
             await asyncio.to_thread(Base.metadata.create_all, bind=engine)
             logger.info("Database schema is up to date.")
@@ -279,6 +284,7 @@ async def admin_dashboard():
                         <a href="/admin/templates" class="block bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Manage Templates</a>
                         <a href="/admin/customers" class="block bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">Manage Customers</a>
                         <a href="/admin/migration" class="block bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded">Data Migration</a>
+                        <a href="/admin/guides" class="block bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded">📚 Documentation & Guides</a>
                         <a href="/demo/generate-invoice" target="_blank" class="block bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded">Preview Demo Invoice</a>
                     </div>
                 </div>
@@ -480,6 +486,52 @@ async def admin_login():
             function showError(msg) {
                 document.getElementById('error').textContent = msg;
                 document.getElementById('error').classList.remove('hidden');
+            }
+
+            // Handle return URL from query parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const returnUrl = urlParams.get('return_url') || '/admin/';
+
+            // Override default redirect if return_url exists
+            if (returnUrl !== '/admin/') {
+                const originalVerifyOTP = verifyOTP;
+                verifyOTP = async function() {
+                    const phone = document.getElementById('phone').value.trim();
+                    const otp = document.getElementById('otp').value.trim();
+                    const name = document.getElementById('name').value.trim();
+
+                    if (otp.length !== 6) {
+                        showError('Please enter 6-digit OTP');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(API_BASE + '/auth/whatsapp/verify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ whatsapp_number: phone, otp_code: otp, name: name })
+                        });
+
+                        const text = await response.text();
+                        let data;
+                        try {
+                            data = JSON.parse(text);
+                        } catch (e) {
+                            showError('Verify Server Error: ' + text.substring(0, 100));
+                            return;
+                        }
+
+                        if (response.ok && data.success) {
+                            localStorage.setItem('access_token', data.token);
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                            window.location.href = decodeURIComponent(returnUrl);
+                        } else {
+                            showError(data.message || data.detail || 'Invalid OTP');
+                        }
+                    } catch (e) {
+                        showError('Verify Network Error: ' + e.message);
+                    }
+                };
             }
         </script>
     </body>
@@ -852,6 +904,409 @@ async def admin_migration():
     <html><head><title>Migration</title><meta http-equiv="refresh" content="0; url=/admin/" /></head>
     <body><script>alert("Migration tool coming soon!"); window.location.href="/admin/";</script></body></html>
     """
+
+
+@app.get("/admin/guides", response_class=HTMLResponse)
+async def admin_guides():
+    """Documentation and Guides Page"""
+    import os
+    
+    # Read guide files
+    guides = {}
+    guide_files = {
+        "sales_team_guide": "SALES_TEAM_INVOICE_LINK_GUIDE.md",
+        "quick_reference": "INVOICE_LINK_QUICK_REFERENCE.md",
+        "access_guide": "INVOICE_PAGE_ACCESS_GUIDE.md"
+    }
+    
+    for key, filename in guide_files.items():
+        filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)), filename)
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    guides[key] = f.read()
+            except:
+                guides[key] = f"Error reading {filename}"
+        else:
+            guides[key] = f"File {filename} not found"
+    
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>EE Invoicing - Documentation & Guides</title>
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {{ font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif; }}
+            .markdown-content {{
+                line-height: 1.8;
+            }}
+            .markdown-content h1 {{
+                font-size: 2rem;
+                font-weight: 700;
+                margin-top: 2rem;
+                margin-bottom: 1rem;
+                padding-bottom: 0.5rem;
+                border-bottom: 2px solid #e5e7eb;
+            }}
+            .markdown-content h2 {{
+                font-size: 1.5rem;
+                font-weight: 600;
+                margin-top: 1.5rem;
+                margin-bottom: 0.75rem;
+                color: #1f2937;
+            }}
+            .markdown-content h3 {{
+                font-size: 1.25rem;
+                font-weight: 600;
+                margin-top: 1.25rem;
+                margin-bottom: 0.5rem;
+                color: #374151;
+            }}
+            .markdown-content p {{
+                margin-bottom: 1rem;
+                color: #4b5563;
+            }}
+            .markdown-content ul, .markdown-content ol {{
+                margin-left: 1.5rem;
+                margin-bottom: 1rem;
+            }}
+            .markdown-content li {{
+                margin-bottom: 0.5rem;
+                color: #4b5563;
+            }}
+            .markdown-content code {{
+                background-color: #f3f4f6;
+                padding: 0.125rem 0.375rem;
+                border-radius: 0.25rem;
+                font-family: 'Courier New', monospace;
+                font-size: 0.875rem;
+                color: #dc2626;
+            }}
+            .markdown-content pre {{
+                background-color: #1f2937;
+                color: #f9fafb;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                overflow-x: auto;
+                margin-bottom: 1rem;
+            }}
+            .markdown-content pre code {{
+                background-color: transparent;
+                color: #f9fafb;
+                padding: 0;
+            }}
+            .markdown-content table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 1rem;
+            }}
+            .markdown-content table th,
+            .markdown-content table td {{
+                border: 1px solid #e5e7eb;
+                padding: 0.5rem;
+                text-align: left;
+            }}
+            .markdown-content table th {{
+                background-color: #f9fafb;
+                font-weight: 600;
+            }}
+        </style>
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <nav class="bg-blue-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <a href="/admin/" class="text-xl font-bold hover:text-blue-100">EE Invoicing System</a>
+                <div>
+                    <a href="/admin/" class="mr-4 hover:underline">Dashboard</a>
+                    <button onclick="logout()" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-6">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-4">📚 Documentation & Guides</h1>
+                <p class="text-gray-600 mb-6">Complete guides for using the Invoice Creation system</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <a href="#sales-guide" class="bg-blue-50 hover:bg-blue-100 p-4 rounded-lg border-2 border-blue-200 transition">
+                        <h3 class="font-semibold text-blue-900 mb-2">📖 Sales Team Guide</h3>
+                        <p class="text-sm text-blue-700">Complete guide for generating invoice links</p>
+                    </a>
+                    <a href="#quick-ref" class="bg-green-50 hover:bg-green-100 p-4 rounded-lg border-2 border-green-200 transition">
+                        <h3 class="font-semibold text-green-900 mb-2">⚡ Quick Reference</h3>
+                        <p class="text-sm text-green-700">Fast lookup for AI agents and developers</p>
+                    </a>
+                    <a href="#access-guide" class="bg-purple-50 hover:bg-purple-100 p-4 rounded-lg border-2 border-purple-200 transition">
+                        <h3 class="font-semibold text-purple-900 mb-2">🔗 Access Guide</h3>
+                        <p class="text-sm text-purple-700">How to access the invoice creation page</p>
+                    </a>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div id="sales-guide" class="markdown-content">
+                    <h1>Sales Team Invoice Creation Link Guide</h1>
+                    <div style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; max-height: 600px; overflow-y: auto; background: #f9fafb; padding: 1rem; border-radius: 0.5rem;">{guides.get('sales_team_guide', 'Guide not available')}</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div id="quick-ref" class="markdown-content">
+                    <h1>Invoice Creation Link - Quick Reference</h1>
+                    <div style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; max-height: 600px; overflow-y: auto; background: #f9fafb; padding: 1rem; border-radius: 0.5rem;">{guides.get('quick_reference', 'Guide not available')}</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div id="access-guide" class="markdown-content">
+                    <h1>Invoice Creation Page - Access Guide</h1>
+                    <div style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; max-height: 600px; overflow-y: auto; background: #f9fafb; padding: 1rem; border-radius: 0.5rem;">{guides.get('access_guide', 'Guide not available')}</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">Need Help?</h2>
+                        <p class="text-gray-600">For technical support or questions, contact the development team.</p>
+                    </div>
+                    <a href="/admin/" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function logout() {{
+                localStorage.removeItem('access_token');
+                window.location.href = '/';
+            }}
+
+            // Smooth scroll for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {{
+                anchor.addEventListener('click', function (e) {{
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {{
+                        target.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                    }}
+                }});
+            }});
+        </script>
+    </body>
+    </html>
+    """
+
+
+# Invoice creation page from URL parameters (Mobile-First Design)
+@app.get("/create-invoice", response_class=HTMLResponse)
+async def create_invoice_page(
+    request: Request,
+    package_id: Optional[str] = Query(None, description="Package ID from package table"),
+    panel_qty: Optional[int] = Query(None, description="Panel quantity"),
+    panel_rating: Optional[str] = Query(None, description="Panel rating"),
+    discount_given: Optional[str] = Query(None, description="Discount amount or percent"),
+    customer_name: Optional[str] = Query(None, description="Customer name (optional)"),
+    customer_phone: Optional[str] = Query(None, description="Customer phone (optional)"),
+    customer_address: Optional[str] = Query(None, description="Customer address (optional)"),
+    template_id: Optional[str] = Query(None, description="Template ID (optional)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Invoice creation page accessible via URL with parameters.
+    
+    Handles both normal URLs and double-encoded URLs.
+    """
+    from urllib.parse import unquote, parse_qs
+    
+    # Handle double-encoded URLs (e.g., package_id%3Dvalue instead of package_id=value)
+    # This happens when URLs are encoded twice
+    if not package_id and request.url.query:
+        query_str = str(request.url.query)
+        # Check if the query string itself contains encoded = or &
+        if '%3D' in query_str or '%26' in query_str:
+            try:
+                # Decode the entire query string once
+                decoded = unquote(query_str)
+                # Parse the decoded query string
+                parsed = parse_qs(decoded, keep_blank_values=True)
+                # Extract parameters
+                if 'package_id' in parsed and parsed['package_id']:
+                    package_id = parsed['package_id'][0]
+                if 'discount_given' in parsed and parsed['discount_given'] and not discount_given:
+                    discount_given = parsed['discount_given'][0]
+                if 'panel_qty' in parsed and parsed['panel_qty'] and not panel_qty:
+                    try:
+                        panel_qty = int(parsed['panel_qty'][0])
+                    except:
+                        pass
+                if 'panel_rating' in parsed and parsed['panel_rating'] and not panel_rating:
+                    panel_rating = parsed['panel_rating'][0]
+                if 'customer_name' in parsed and parsed['customer_name'] and not customer_name:
+                    customer_name = parsed['customer_name'][0]
+                if 'customer_phone' in parsed and parsed['customer_phone'] and not customer_phone:
+                    customer_phone = parsed['customer_phone'][0]
+                if 'customer_address' in parsed and parsed['customer_address'] and not customer_address:
+                    customer_address = parsed['customer_address'][0]
+                if 'template_id' in parsed and parsed['template_id'] and not template_id:
+                    template_id = parsed['template_id'][0]
+            except Exception as e:
+                # If parsing fails, continue with normal FastAPI parsing
+                pass
+    
+    """
+    Invoice creation page accessible via URL with parameters.
+
+    Sample URL: https://yourdomain.com/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=500
+
+    Workflow:
+    1. If package_id provided, validate it exists and show invoice form
+    2. If package_id not provided, show form to enter package_id
+    3. If user not logged in, redirect to login with return URL
+    4. Return HTML form with pre-filled data from URL parameters
+    5. Allow sales agent to edit customer info (optional)
+    6. Submit creates invoice linked to logged-in user
+    """
+    from app.models.package import Package
+    from app.models.auth import AuthUser
+    from fastapi.templating import Jinja2Templates
+
+    try:
+        package = None
+        # If package_id is provided, fetch the package
+        if package_id:
+            package = db.query(Package).filter(Package.bubble_id == package_id).first()
+            if not package:
+                # Show error but still render the form so user can try again
+                error_message = f"Package with ID '{package_id}' not found. Please check the Package ID and try again."
+            else:
+                error_message = None
+        else:
+            error_message = None
+
+        # Check authentication (for now, we'll render form without auth check)
+        # The form will handle auth via JavaScript and localStorage
+        current_user = None  # We'll check in JS
+
+        # Return HTML template with pre-filled data
+        templates = Jinja2Templates(directory="app/templates")
+
+        return templates.TemplateResponse(
+            "create_invoice.html",
+            {
+                "request": request,
+                "user": current_user,
+                "package": package,
+                "package_id": package_id,
+                "error_message": error_message if 'error_message' in locals() else None,
+                "panel_qty": panel_qty,
+                "panel_rating": panel_rating,
+                "discount_given": discount_given,
+                "customer_name": customer_name,
+                "customer_phone": customer_phone,
+                "customer_address": customer_address,
+                "template_id": template_id
+            }
+        )
+    finally:
+        pass  # Session will be automatically closed by dependency injection
+
+
+# Random Package Link Generator (For Testing)
+@app.get("/demo/random-package-link", response_class=HTMLResponse)
+async def random_package_link(db: Session = Depends(get_db)):
+    """
+    Pick a random package from DB and generate invoice creation link
+    Sample use case: Test with RM500 discount + 10% off discount
+    """
+    from app.models.package import Package
+    from sqlalchemy import func
+
+    # 1. Fetch Random Package
+    package_count = db.query(func.count(Package.id)).scalar() or 0
+    if package_count == 0:
+        return HTMLResponse(
+            content="<h1 class='text-center mt-10 text-2xl text-red-600'>No packages found in database</h1>",
+            status_code=404
+        )
+
+    random_offset = 0 if package_count == 1 else (package_count - 1)
+    import random
+    random_offset = random.randint(0, random_offset)
+    package = db.query(Package).offset(random_offset).first()
+
+    # 2. Generate Invoice Creation Link
+    # Discounts: RM500 (fixed) + 10% (percentage)
+    discount_fixed = 500
+    discount_percent = 10
+    invoice_link = f"/create-invoice?package_id={package.bubble_id}&discount_given={discount_fixed}%20{discount_percent}%25"
+
+    # 3. Render HTML
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Random Package Link Generator</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 min-h-screen p-8">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+            <h1 class="text-2xl font-bold mb-6 text-blue-600">🎲 Random Package Link Generator</h1>
+
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h2 class="font-semibold text-blue-800 mb-2">Selected Package:</h2>
+                <p class="text-xl font-bold text-gray-900">{package.name}</p>
+                <p class="text-gray-600">Price: RM {package.price}</p>
+                <p class="text-gray-500 text-sm">Package ID: {package.bubble_id}</p>
+            </div>
+
+            <div class="mb-6 p-4 bg-green-50 rounded-lg">
+                <h2 class="font-semibold text-green-800 mb-2">Discount Applied:</h2>
+                <p class="text-red-600 font-semibold">Fixed: RM {discount_fixed}</p>
+                <p class="text-red-600 font-semibold">Percentage: {discount_percent}%</p>
+                <p class="text-gray-600 text-sm mt-1">Total Discount: RM {discount_fixed + (package.price * discount_percent / 100)}</p>
+            </div>
+
+            <div class="mb-6 p-4 bg-yellow-50 rounded-lg">
+                <h2 class="font-semibold text-yellow-800 mb-2">Expected Invoice Items:</h2>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Package:</strong> {package.name} (RM {package.price})</li>
+                    <li><strong>Discount:</strong> RM {discount_fixed} (negative price)</li>
+                    <li><strong>Discount:</strong> {discount_percent}% (negative price)</li>
+                    <li><strong>SST:</strong> 8% (default)</li>
+                    <li><strong>Total:</strong> RM {package.price - discount_fixed - (package.price * discount_percent / 100) + ((package.price - discount_fixed - (package.price * discount_percent / 100)) * 0.08)}</li>
+                </ul>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="font-semibold text-gray-800 mb-2">Invoice Creation Link:</h2>
+                <div class="bg-gray-100 p-3 rounded-lg border border-gray-300">
+                    <code class="text-sm text-blue-600 break-all">{invoice_link}</code>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <a href="/admin/" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-center py-3 rounded-lg font-semibold">
+                    Back to Dashboard
+                </a>
+                <a href="{invoice_link}" class="flex-2 bg-green-500 hover:bg-green-600 text-white text-center py-3 px-6 rounded-lg font-semibold">
+                    Open Invoice Form
+                </a>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
 
 if __name__ == "__main__":
     import uvicorn

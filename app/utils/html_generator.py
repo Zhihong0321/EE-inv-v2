@@ -2,7 +2,7 @@ from typing import Dict, Any
 
 def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> str:
     """
-    Generates a high-professional, business-oriented HTML invoice.
+    Generates a professional, minimalist, mobile-optimized HTML invoice.
     """
     
     # Format currency
@@ -12,23 +12,34 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
 
     items_html = ""
     for item in invoice.get("items", []):
+        # Check if item has negative price (discount/voucher)
+        is_discount = item.get('total_price', 0) < 0
+        amount_color = "text-red-600" if is_discount else "text-gray-900"
+        amount_prefix = "-" if is_discount else ""
+        abs_amount = abs(item.get('total_price', 0))
+        abs_unit_price = abs(item.get('unit_price', 0))
+
         items_html += f"""
-        <tr class="border-b border-gray-100">
-            <td class="py-3 pr-4">
-                <p class="font-semibold text-gray-900 text-base">{item.get('description')}</p>
-                <p class="text-[11px] text-gray-400 mt-0.5 uppercase tracking-wider">
-                    {item.get('qty')} unit{'' if item.get('qty') == 1 else 's'} × {fmt_money(item.get('unit_price'))}
-                </p>
-            </td>
-            <td class="py-3 text-right font-bold text-gray-900 text-base">
-                {fmt_money(item.get('total_price'))}
-            </td>
-        </tr>
+        <div class="invoice-item py-4 border-b border-gray-100 last:border-b-0">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                <div class="flex-1">
+                    <p class="font-semibold text-gray-900 text-[15px] leading-snug mb-1">{item.get('description')}</p>
+                    <p class="text-xs text-gray-500 font-normal">
+                        {item.get('qty')} × RM {fmt_money(abs_unit_price)}
+                    </p>
+                </div>
+                <div class="text-right sm:text-right">
+                    <p class="font-semibold {amount_color} text-[15px] whitespace-nowrap">
+                        {amount_prefix}RM {fmt_money(abs_amount)}
+                    </p>
+                </div>
+            </div>
+        </div>
         """
 
     logo_html = ""
     if template.get("logo_url"):
-        logo_html = f'<img src="{template["logo_url"]}" alt="Logo" class="h-10 mb-4 object-contain">'
+        logo_html = f'<img src="{template["logo_url"]}" alt="Logo" class="h-12 mb-5 object-contain">'
 
     def process_notes(text):
         if not text: return ""
@@ -47,7 +58,7 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
     tnc_section = ""
     if template.get("terms_and_conditions"):
         tnc_section = f"""
-        <div class="tnc-container" style="margin-top: 16px; padding-top: 4px; border-top: 1px solid #f3f4f6;">
+        <div class="tnc-container mt-8 pt-6 border-t border-gray-100">
             <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db !important; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Terms & Conditions</h3>
             <div class="tnc-content">{template["terms_and_conditions"]}</div>
         </div>
@@ -56,11 +67,19 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
     disclaimer_section = ""
     if template.get("disclaimer"):
         disclaimer_section = f"""
-        <div class="tnc-container" style="margin-top: 4px; padding-top: 2px; border-top: 1px solid #f3f4f6;">
+        <div class="tnc-container mt-4 pt-4 border-t border-gray-100">
             <h3 style="font-size: 6px !important; font-weight: 700; color: #d1d5db !important; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Notice</h3>
             <div class="tnc-content">{template["disclaimer"]}</div>
         </div>
         """
+
+    # Format company address
+    company_address = template.get('company_address', '')
+    if company_address:
+        address_lines = [line.strip() for line in company_address.split('\n') if line.strip()]
+        formatted_address = '<br>'.join(address_lines)
+    else:
+        formatted_address = ''
 
     return f"""
     <!DOCTYPE html>
@@ -68,110 +87,158 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
         <title>Invoice {invoice.get('invoice_number')}</title>
-        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-            body { font-family: 'Open Sans', sans-serif; color: #111827; -webkit-tap-highlight-color: transparent; }
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ 
+                font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+                color: #1f2937; 
+                -webkit-tap-highlight-color: transparent;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                background-color: #ffffff;
+            }}
+            .invoice-container {{
+                max-width: 100%;
+                margin: 0 auto;
+                padding: 20px 16px;
+            }}
+            @media (min-width: 640px) {{
+                .invoice-container {{
+                    padding: 32px 24px;
+                }}
+            }}
+            @media (min-width: 768px) {{
+                .invoice-container {{
+                    max-width: 680px;
+                    padding: 48px 40px;
+                }}
+            }}
             /* FORCE ALL TNC CHILDREN TO 6PX TO PREVENT BROWSER OVERRIDES */
-            .tnc-container, .tnc-container *, .tnc-container p, .tnc-container div, .tnc-container h1, .tnc-container h2, .tnc-container h3, .tnc-container h4, .tnc-container span { 
+            .tnc-container, .tnc-container *, .tnc-container p, .tnc-container div, .tnc-container h1, .tnc-container h2, .tnc-container h3, .tnc-container h4, .tnc-container span {{ 
                 font-size: 6px !important; 
                 line-height: 1.2 !important;
                 color: #9ca3af !important;
-            }
-            @media print { body { background: white; } .main-container { width: 100% !important; max-width: none !important; padding: 0 !important; box-shadow: none !important; } }
+            }}
+            @media print {{
+                body {{ background: white; }}
+                .invoice-container {{
+                    max-width: 100% !important;
+                    padding: 0 !important;
+                }}
+            }}
         </style>
     </head>
-    <body class="bg-white antialiased">
-        <div class="w-full max-w-4xl mx-auto min-h-screen px-2 py-4 sm:px-6 md:p-12">
+    <body>
+        <div class="invoice-container">
             
-            <!-- Header: Mobile Optimized -->
-            <div class="flex flex-col md:flex-row justify-between items-start border-b-4 border-gray-900 pb-6 mb-8 gap-4">
-                <div class="w-full">
-                    {logo_html}
-                    <h1 class="text-4xl font-extrabold tracking-tighter mb-1 uppercase">{template.get('company_name', 'Company Name')}</h1>
-                    <div class="text-[11px] text-gray-500 font-semibold uppercase tracking-widest leading-relaxed">
-                        <p>{template.get('company_address', '').replace('\n', ' • ')}</p>
-                        <p class="mt-1">
-                            {f'TEL: {template.get("company_phone")}' if template.get('company_phone') else ''}
-                            {f' • EMAIL: {template.get("company_email")}' if template.get('company_email') else ''}
-                        </p>
-                        {f'<p class="text-gray-900 font-black mt-1">SST ID: {template.get("sst_registration_no")}</p>' if template.get('sst_registration_no') else ''}
+            <!-- Header Section -->
+            <header class="mb-8 pb-6 border-b border-gray-200">
+                <div class="flex flex-col gap-6">
+                    <!-- Company Info -->
+                    <div>
+                        {logo_html}
+                        <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 leading-tight">
+                            {template.get('company_name', 'Company Name')}
+                        </h1>
+                        <div class="text-xs sm:text-sm text-gray-600 leading-relaxed space-y-1">
+                            {f'<div>{formatted_address}</div>' if formatted_address else ''}
+                            {f'<div class="mt-2 space-y-1">' if (template.get('company_phone') or template.get('company_email')) else ''}
+                            {f'<div>T: {template.get("company_phone")}</div>' if template.get('company_phone') else ''}
+                            {f'<div>E: {template.get("company_email")}</div>' if template.get('company_email') else ''}
+                            {f'</div>' if (template.get('company_phone') or template.get('company_email')) else ''}
+                            {f'<div class="mt-2 font-semibold text-gray-900">SST ID: {template.get("sst_registration_no")}</div>' if template.get('sst_registration_no') else ''}
+                        </div>
+                    </div>
+                    
+                    <!-- Invoice Meta -->
+                    <div class="flex flex-row justify-between items-start pt-4 border-t border-gray-200 sm:border-t-0 sm:pt-0 sm:flex-col sm:items-end sm:gap-4">
+                        <div class="flex-1 sm:flex-none">
+                            <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Invoice Number</p>
+                            <p class="text-xl sm:text-2xl font-semibold text-gray-900">#{invoice.get('invoice_number')}</p>
+                        </div>
+                        <div class="text-right sm:text-right">
+                            <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Date</p>
+                            <p class="text-base sm:text-lg font-semibold text-gray-900">{invoice.get('invoice_date')}</p>
+                        </div>
                     </div>
                 </div>
-                <div class="flex flex-row md:flex-col justify-between md:text-right w-full md:w-auto items-baseline md:items-end border-t-2 md:border-t-0 pt-4 md:pt-0 mt-4 md:mt-0 border-gray-900">
-                    <div class="text-left md:text-right">
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Invoice</p>
-                        <p class="text-3xl font-black tracking-tighter">#{invoice.get('invoice_number')}</p>
-                    </div>
-                    <div class="text-right mt-0 md:mt-6">
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Date</p>
-                        <p class="text-lg font-bold">{invoice.get('invoice_date')}</p>
-                    </div>
+            </header>
+
+            <!-- Bill To Section -->
+            <section class="mb-8">
+                <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Bill To</p>
+                <p class="text-lg sm:text-xl font-semibold text-gray-900 mb-2 leading-tight">
+                    {invoice.get('customer_name_snapshot')}
+                </p>
+                {f'<p class="text-sm text-gray-600 leading-relaxed">{invoice.get("customer_address_snapshot")}</p>' if invoice.get('customer_address_snapshot') else '<p class="text-sm text-gray-400 italic">No address provided</p>'}
+            </section>
+
+            <!-- Items Section -->
+            <section class="mb-8">
+                <div class="mb-4 pb-2 border-b border-gray-200">
+                    <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Items</p>
                 </div>
-            </div>
-
-            <!-- Client Info -->
-            <div class="mb-12">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-2">Billed To</p>
-                <p class="text-3xl font-extrabold uppercase leading-none tracking-tighter">{invoice.get('customer_name_snapshot')}</p>
-                <p class="text-sm text-gray-500 mt-2 leading-relaxed italic max-w-md">{invoice.get('customer_address_snapshot') or 'No address provided'}</p>
-            </div>
-
-            <!-- Items: Zero-Waste Table -->
-            <table class="w-full mb-8 border-collapse">
-                <thead>
-                    <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-900">
-                        <th class="text-left pb-2 font-black">Description</th>
-                        <th class="text-right pb-2 font-black">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
+                <div class="space-y-0">
                     {items_html}
-                </tbody>
-            </table>
+                </div>
+            </section>
 
-            <!-- Summary & Payment: Responsive Grid -->
-            <div class="flex flex-col md:flex-row justify-between gap-8 mb-8">
-                <!-- Totals: Order 1 on mobile to show first -->
-                <div class="w-full md:w-64 space-y-2 md:order-2">
-                    <div class="flex justify-between text-sm font-semibold">
-                        <span class="text-gray-400 uppercase">Subtotal</span>
-                        <span>{fmt_money(invoice.get('subtotal'))}</span>
+            <!-- Summary Section -->
+            <section class="mb-8">
+                <div class="flex flex-col sm:flex-row sm:justify-between gap-6">
+                    <!-- Totals -->
+                    <div class="flex-1 space-y-3 sm:max-w-xs">
+                        <div class="flex justify-between items-center text-sm text-gray-700">
+                            <span class="font-normal">Subtotal</span>
+                            <span class="font-semibold">RM {fmt_money(invoice.get('subtotal'))}</span>
+                        </div>
+                        {f'''
+                        <div class="flex justify-between items-center text-sm text-gray-700">
+                            <span class="font-normal">SST ({fmt_money(invoice.get('sst_rate'))}%)</span>
+                            <span class="font-semibold">RM {fmt_money(invoice.get('sst_amount'))}</span>
+                        </div>
+                        ''' if float(invoice.get('sst_amount', 0)) > 0 else ''}
+                        <div class="flex justify-between items-center pt-4 mt-4 border-t-2 border-gray-900">
+                            <span class="text-base font-semibold text-gray-900">Total</span>
+                            <span class="text-lg sm:text-xl font-semibold text-gray-900">RM {fmt_money(invoice.get('total_amount'))}</span>
+                        </div>
                     </div>
-                    {f'''
-                    <div class="flex justify-between text-sm font-semibold text-gray-400">
-                        <span class="uppercase font-medium">SST ({fmt_money(invoice.get('sst_rate'))}%)</span>
-                        <span class="text-gray-900">{fmt_money(invoice.get('sst_amount'))}</span>
-                    </div>
-                    ''' if float(invoice.get('sst_amount', 0)) > 0 else ''}
-                    <div class="flex justify-between text-xl font-black pt-3 border-t-2 border-gray-900">
-                        <span class="uppercase tracking-tighter">Total (RM)</span>
-                        <span>{fmt_money(invoice.get('total_amount'))}</span>
+
+                    <!-- Payment Info -->
+                    <div class="flex-1 pt-6 border-t border-gray-200 sm:border-t-0 sm:pt-0 sm:pl-6 sm:border-l sm:border-gray-200">
+                        <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-4">Payment Information</p>
+                        <div class="space-y-3 text-sm">
+                            <div>
+                                <span class="text-gray-500 font-normal block mb-1">Bank</span>
+                                <span class="text-gray-900 font-semibold">{template.get('bank_name', '-')}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 font-normal block mb-1">Account Number</span>
+                                <span class="text-gray-900 font-semibold">{template.get('bank_account_no', '-')}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 font-normal block mb-1">Account Holder</span>
+                                <span class="text-gray-900 font-semibold">{template.get('bank_account_name', '-')}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </section>
 
-                <!-- Payment Info -->
-                <div class="flex-1 md:order-1 border-t md:border-t-0 pt-6 md:pt-0 border-gray-100">
-                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Payment Info</p>
-                    <div class="grid grid-cols-2 gap-y-2 text-xs font-semibold">
-                        <span class="text-gray-400 uppercase">Bank</span>
-                        <span class="text-gray-900">{template.get('bank_name', '-')}</span>
-                        <span class="text-gray-400 uppercase text-[10px]">Account</span>
-                        <span class="text-gray-900 font-bold tracking-tight">{template.get('bank_account_no', '-')}</span>
-                        <span class="text-gray-400 uppercase">Holder</span>
-                        <span class="text-gray-900 uppercase truncate">{template.get('bank_account_name', '-')}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer -->
+            <!-- Footer Sections -->
             {tnc_section}
             {disclaimer_section}
 
-            <div class="mt-12 pt-6 border-t border-gray-50 text-center">
-                <p class="text-[9px] font-bold text-gray-300 uppercase tracking-[0.3em]">Official Digital Document</p>
-            </div>
+            <!-- Document Footer -->
+            <footer class="mt-12 pt-6 border-t border-gray-100 text-center">
+                <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Official Digital Document</p>
+            </footer>
         </div>
     </body>
     </html>

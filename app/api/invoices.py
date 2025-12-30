@@ -8,11 +8,12 @@ from app.schemas.invoice import (
     InvoiceCreate, InvoiceUpdate, InvoiceResponse,
     InvoiceItemCreate, InvoiceItemUpdate, InvoiceItemResponse,
     InvoicePaymentCreate, InvoicePaymentUpdate, InvoicePaymentResponse,
-    InvoiceListResponse, GenerateShareLinkResponse
+    InvoiceListResponse, GenerateShareLinkResponse,
+    InvoiceOnTheFlyRequest
 )
 from app.repositories.invoice_repo import InvoiceRepository
 from app.repositories.customer_repo import CustomerRepository
-from app.middleware.auth import get_current_user, get_request_ip
+from app.middleware.auth import get_current_user, get_api_key_user, get_optional_user, get_request_ip
 from app.models.auth import AuthUser
 from app.config import settings
 
@@ -112,6 +113,81 @@ def create_invoice(
     )
 
     return invoice
+
+
+@router.post("/on-the-fly", response_model=dict)
+async def create_invoice_on_the_fly(
+    request_data: InvoiceOnTheFlyRequest,
+    request: Request,
+    current_user: Optional[AuthUser] = Depends(get_optional_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new invoice on the fly for microservices or quick creation.
+    Returns the shareable URL and invoice details.
+    """
+    invoice_repo = InvoiceRepository(db)
+    
+    # Parse discount_given string into discount_fixed and discount_percent
+    # Input format: "500 10%" or "500" or "10%"
+    from decimal import Decimal
+    
+    discount_fixed = Decimal(0)
+    discount_percent = Decimal(0)
+    
+    if request_data.discount_given:
+        discount_str = request_data.discount_given.strip()
+        parts = discount_str.replace('+', ' ').split()
+        
+        for part in parts:
+            part = part.strip()
+            if '%' in part:
+                discount_percent = Decimal(part.replace('%', ''))
+            else:
+                try:
+                    discount_fixed = Decimal(part.replace('RM', '').replace(',', ''))
+                except:
+                    pass
+
+    try:
+        invoice = invoice_repo.create_on_the_fly(
+            package_id=request_data.package_id,
+            discount_fixed=discount_fixed,
+            discount_percent=discount_percent,
+            apply_sst=request_data.apply_sst,
+            template_id=request_data.template_id,
+            voucher_code=request_data.voucher_code,
+            agent_markup=request_data.agent_markup,
+            customer_name=request_data.customer_name,
+            customer_phone=request_data.customer_phone,
+            customer_address=request_data.customer_address,
+            epp_fee_amount=request_data.epp_fee_amount,
+            epp_fee_description=request_data.epp_fee_description,
+            created_by=current_user.user_id if current_user else None
+        )
+        # Build base URL for share link
+        base_url = str(request.base_url).rstrip("/")
+        share_url = f"{base_url}/view/{invoice.share_token}"
+
+        response = {
+            "success": True,
+            "invoice_link": share_url,
+            "invoice_number": invoice.invoice_number,
+            "bubble_id": invoice.bubble_id,
+            "total_amount": float(invoice.total_amount),
+        }
+
+        # Show markup info if user is logged in
+        if current_user:
+            response["agent_markup"] = float(invoice.agent_markup)
+            response["subtotal_with_markup"] = float(invoice.subtotal)
+
+        return response
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create invoice: {str(e)}")
 
 
 @router.get("", response_model=InvoiceListResponse)

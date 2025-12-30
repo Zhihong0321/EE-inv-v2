@@ -2,8 +2,11 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from app.models.invoice import InvoiceNew, InvoiceNewItem, InvoicePaymentNew
-from app.models.invoice import AuditLog
+from app.models.invoice import InvoiceNew, InvoiceNewItem, InvoicePaymentNew, AuditLog
+from app.models.package import Package
+from app.models.voucher import Voucher
+from app.models.customer import Customer
+from app.models.template import InvoiceTemplate
 from app.utils.security import generate_share_token
 from app.config import settings
 import secrets
@@ -138,27 +141,249 @@ class InvoiceRepository:
 
     def _calculate_invoice_totals(self, invoice: InvoiceNew) -> None:
         """Calculate invoice totals"""
-        # Get all items
-        items = self.db.query(InvoiceNewItem).filter(
-            InvoiceNewItem.invoice_id == invoice.bubble_id
-        ).all()
+        # Get all items from session/relationship to ensure we see unflushed items
+        items = invoice.items
 
-        # Calculate subtotal
-        subtotal = sum(item.total_price for item in items)
+        # If items list is empty, try querying as fallback
+        if not items:
+            items = self.db.query(InvoiceNewItem).filter(
+                InvoiceNewItem.invoice_id == invoice.bubble_id
+            ).all()
+
+        # Calculate base subtotal from items (including negative prices from discount/voucher items)
+        subtotal = sum(item.total_price for item in items) if items else Decimal(0)
         invoice.subtotal = subtotal
 
-        # Calculate discount
-        if invoice.discount_percent:
-            invoice.discount_amount = subtotal * (invoice.discount_percent / Decimal(100))
-        else:
-            invoice.discount_amount = Decimal(0)
+        # Calculate discount amount from discount items (negative prices already in subtotal)
+        discount_items = [item for item in items if hasattr(item, 'item_type') and item.item_type == 'discount']
+        discount_from_items = sum(abs(item.total_price) for item in discount_items)
 
-        # Calculate SST (on subtotal - discount)
-        taxable_amount = subtotal - invoice.discount_amount
-        invoice.sst_amount = taxable_amount * (invoice.sst_rate / Decimal(100))
+        # Calculate voucher amount from voucher items (negative prices already in subtotal)
+        voucher_items = [item for item in items if hasattr(item, 'item_type') and item.item_type == 'voucher']
+        voucher_from_items = sum(abs(item.total_price) for item in voucher_items)
+
+        # Update invoice fields to match item amounts (for reference)
+        invoice.discount_amount = discount_from_items
+        invoice.voucher_amount = voucher_from_items
+
+        # Calculate SST (on subtotal, which already includes negative prices)
+        # Note: If there are discount/voucher items, they're already negative in subtotal
+        taxable_amount = subtotal
+        invoice.sst_amount = taxable_amount * (invoice.sst_rate / Decimal(100)) if taxable_amount > 0 else Decimal(0)
 
         # Calculate total
-        invoice.total_amount = taxable_amount + invoice.sst_amount - invoice.voucher_amount
+        invoice.total_amount = taxable_amount + invoice.sst_amount
+
+    def create_on_the_fly(
+        self,
+        package_id: str,
+        discount_fixed: Decimal = Decimal(0),
+        discount_percent: Decimal = Decimal(0),
+        apply_sst: bool = True,
+        template_id: Optional[str] = None,
+        voucher_code: Optional[str] = None,
+        agent_markup: Decimal = Decimal(0),
+        customer_name: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        customer_address: Optional[str] = None,
+        epp_fee_amount: Optional[Decimal] = None,
+        epp_fee_description: Optional[str] = None,
+        created_by: Optional[str] = None
+    ) -> InvoiceNew:
+        """Create an invoice on the fly based on a package and other parameters"""
+        
+        # 1. Fetch Package
+        package = self.db.query(Package).filter(Package.bubble_id == package_id).first()
+        if not package:
+            raise ValueError(f"Package not found: {package_id}")
+
+        # 2. Handle Customer
+        customer_id = None
+        if customer_name:
+            # Try to find existing customer by name and phone
+            customer = self.db.query(Customer).filter(Customer.name == customer_name).first()
+            if not customer:
+                customer_id_str = f"cust_{secrets.token_hex(4)}"
+                customer = Customer(
+                    customer_id=customer_id_str,
+                    name=customer_name,
+                    phone=customer_phone,
+                    address=customer_address,
+                    created_by=created_by
+                )
+                self.db.add(customer)
+                self.db.flush()
+            customer_id = customer.id
+            cust_name_snapshot = customer.name
+            cust_phone_snapshot = customer.phone
+            cust_address_snapshot = customer.address
+            cust_email_snapshot = customer.email
+        else:
+            cust_name_snapshot = "Sample Quotation"
+            cust_phone_snapshot = customer_phone
+            cust_address_snapshot = customer_address
+            cust_email_snapshot = None
+
+        # 3. Handle Voucher
+        voucher_amount = Decimal(0)
+        if voucher_code:
+            voucher = self.db.query(Voucher).filter(Voucher.voucher_code == voucher_code, Voucher.active == True).first()
+            if voucher:
+                if voucher.discount_amount:
+                    voucher_amount = voucher.discount_amount
+                elif voucher.discount_percent:
+                    # Will be calculated based on package price later if needed, 
+                    # but usually it's a fixed amount or applied to total.
+                    # For now, let's assume it's applied to the package price.
+                    voucher_amount = package.price * (Decimal(voucher.discount_percent) / Decimal(100))
+
+        # 4. Handle Template and SST
+        sst_rate = Decimal(0)
+        if apply_sst:
+            sst_rate = Decimal(str(settings.DEFAULT_SST_RATE))
+            # Optional: if template has a specific rate, use it? 
+            # For now, just use default 8% if apply_sst is True.
+
+        # 5. Create Invoice
+        bubble_id = f"inv_{secrets.token_hex(8)}"
+        invoice_number = self._generate_invoice_number()
+        
+        invoice = InvoiceNew(
+            bubble_id=bubble_id,
+            invoice_number=invoice_number,
+            invoice_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            customer_id=customer_id,
+            customer_name_snapshot=cust_name_snapshot,
+            customer_phone_snapshot=cust_phone_snapshot,
+            customer_address_snapshot=cust_address_snapshot,
+            customer_email_snapshot=cust_email_snapshot,
+            package_id=package_id,
+            package_name_snapshot=package.package_name,
+            template_id=template_id,
+            discount_fixed=discount_fixed,
+            discount_percent=discount_percent,
+            agent_markup=agent_markup,
+            voucher_code=voucher_code,
+            voucher_amount=voucher_amount,
+            sst_rate=sst_rate,
+            status="draft",
+            created_by=created_by,
+            share_token=secrets.token_urlsafe(16),
+            share_enabled=True,
+            share_expires_at=datetime.now(timezone.utc) + timedelta(days=settings.SHARE_LINK_EXPIRY_DAYS)
+        )
+
+        # Ensure template_id is set
+        invoice.template_id = template_id
+        
+        self.db.add(invoice)
+        self.db.flush()
+
+        # 6. Add Items from Package
+        # Package table does NOT have an items column - always create single item from invoice_desc and price
+        # Add markup to the item
+        unit_price = (package.price or Decimal(0)) + agent_markup
+        item = InvoiceNewItem(
+            bubble_id=f"item_{secrets.token_hex(8)}",
+            invoice=invoice,  # Use relationship for immediate update
+            description=package.invoice_desc or package.package_name or "Package Item",
+            qty=Decimal(1),
+            unit_price=unit_price,
+            total_price=unit_price,
+            item_type="package",  # Mark as package item
+            sort_order=0
+        )
+        self.db.add(item)
+
+        # 6b. Create Discount Items (if discount exists)
+        # Create TWO separate discount items: one for fixed, one for percentage
+        # Discount should be visible as invoice item with negative price
+        discount_sort_order = 100  # Start discount items at sort_order 100
+
+        # Create FIXED discount item separately
+        if discount_fixed and discount_fixed > 0:
+            fixed_discount_item = InvoiceNewItem(
+                bubble_id=f"item_{secrets.token_hex(8)}",
+                invoice=invoice,  # Use relationship for immediate update
+                description=f"Discount (RM {discount_fixed})",
+                qty=Decimal(1),
+                unit_price=-discount_fixed,  # Negative price for discount
+                total_price=-discount_fixed,
+                item_type="discount",
+                sort_order=discount_sort_order
+            )
+            self.db.add(fixed_discount_item)
+            discount_sort_order += 1
+
+        # Create PERCENT discount item separately
+        if discount_percent and discount_percent > 0:
+            percent_amount = package.price * (discount_percent / Decimal(100))
+            percent_discount_item = InvoiceNewItem(
+                bubble_id=f"item_{secrets.token_hex(8)}",
+                invoice=invoice,  # Use relationship for immediate update
+                description=f"Discount ({discount_percent}%)",
+                qty=Decimal(1),
+                unit_price=-percent_amount,  # Negative price for discount
+                total_price=-percent_amount,
+                item_type="discount",
+                sort_order=discount_sort_order
+            )
+            self.db.add(percent_discount_item)
+            discount_sort_order += 1
+
+        # 6c. Create Voucher Item (if voucher exists)
+        # Voucher should be visible as invoice item with negative price
+        if voucher_code and voucher_amount > 0:
+            voucher_item = InvoiceNewItem(
+                bubble_id=f"item_{secrets.token_hex(8)}",
+                invoice=invoice,  # Use relationship for immediate update
+                description=f"Voucher ({voucher_code})",
+                qty=Decimal(1),
+                unit_price=-voucher_amount,  # Negative price for voucher
+                total_price=-voucher_amount,
+                item_type="voucher",
+                sort_order=101  # Show after discount
+            )
+            self.db.add(voucher_item)
+
+        # 6d. Create EPP Fee Item (if EPP fees exist)
+        # EPP fee should be visible as invoice item with positive price
+        if epp_fee_amount and epp_fee_amount > 0 and epp_fee_description:
+            # Ensure epp_fee_amount is Decimal
+            epp_fee_decimal = Decimal(str(epp_fee_amount)) if not isinstance(epp_fee_amount, Decimal) else epp_fee_amount
+            epp_fee_item = InvoiceNewItem(
+                bubble_id=f"item_{secrets.token_hex(8)}",
+                invoice=invoice,  # Use relationship for immediate update
+                description=f"Bank Processing Fee ({epp_fee_description})",
+                qty=Decimal(1),
+                unit_price=epp_fee_decimal,
+                total_price=epp_fee_decimal,
+                item_type="epp_fee",  # Mark as EPP fee item
+                sort_order=200  # Show after voucher
+            )
+            self.db.add(epp_fee_item)
+
+        # Note: Markup is NOT visible as item (user requirement: "invisible to client")
+        # Markup is already added to package price above
+
+        # 7. Finalize
+        self._calculate_invoice_totals(invoice)
+        self.db.commit()
+        self.db.refresh(invoice)
+        
+        # Audit log
+        new_values = {c.name: getattr(invoice, c.name) for c in invoice.__table__.columns}
+        # Convert Decimals to float for JSON serialization in audit log
+        for k, v in new_values.items():
+            if isinstance(v, Decimal):
+                new_values[k] = float(v)
+            elif isinstance(v, datetime):
+                new_values[k] = v.isoformat()
+        
+        import json
+        self._create_audit_log("invoice_new", bubble_id, "create_on_the_fly", created_by, None, json.dumps(new_values))
+
+        return invoice
 
     def get_by_id(self, bubble_id: str) -> Optional[InvoiceNew]:
         """Get invoice by ID"""
@@ -167,6 +392,15 @@ class InvoiceRepository:
     def get_by_number(self, invoice_number: str) -> Optional[InvoiceNew]:
         """Get invoice by invoice number"""
         return self.db.query(InvoiceNew).filter(InvoiceNew.invoice_number == invoice_number).first()
+
+    def get_template(self, template_id: str) -> Optional[dict]:
+        """Get template data by ID"""
+        from sqlalchemy import text
+        result = self.db.execute(
+            text("SELECT * FROM invoice_template WHERE bubble_id = :id"),
+            {"id": template_id}
+        ).first()
+        return result._asdict() if result else None
 
     def get_by_share_token(self, share_token: str) -> Optional[InvoiceNew]:
         """Get invoice by share token"""

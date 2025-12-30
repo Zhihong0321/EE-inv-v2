@@ -39,27 +39,29 @@ def generate_random_invoice_view(db: Session = Depends(get_db)):
         random_offset = random.randint(0, package_count - 1)
         package = db.query(Package).offset(random_offset).first()
         
-        # Parse items if they are JSON
-        items = package.items if package.items else []
-        # If items is empty list but package has price, create a default item
-        if not items and package.price:
+        # Package table does NOT have items column - create item from invoice_desc and price
+        if package and package.price:
             items = [{
-                "description": package.name,
+                "description": package.invoice_desc or package.package_name or "Package Item",
                 "qty": 1,
                 "unit_price": float(package.price),
                 "total_price": float(package.price)
             }]
+        else:
+            items = []
     else:
         # Dummy package if none exists
         package = type('obj', (object,), {
-            "name": "Standard Service Package",
-            "price": 150.00,
-            "items": [
-                {"description": "Consultation Fee", "qty": 1, "unit_price": 50.00, "total_price": 50.00},
-                {"description": "Service Implementation", "qty": 2, "unit_price": 50.00, "total_price": 100.00}
-            ]
+            "package_name": "Standard Service Package",
+            "invoice_desc": "Consultation Fee\nService Implementation",
+            "price": 150.00
         })
-        items = package.items
+        items = [{
+            "description": package.invoice_desc or package.package_name or "Package Item",
+            "qty": 1,
+            "unit_price": float(package.price),
+            "total_price": float(package.price)
+        }]
 
     # 3. Get Template (Default or First)
     template_model = db.query(InvoiceTemplate).filter(InvoiceTemplate.is_default == True).first()
@@ -117,4 +119,12 @@ def generate_random_invoice_view(db: Session = Depends(get_db)):
     }
 
     # 5. Generate HTML
-    return generate_invoice_html(invoice_data, template_data)
+    html_content = generate_invoice_html(invoice_data, template_data)
+    return HTMLResponse(
+        content=html_content,
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )

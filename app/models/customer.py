@@ -24,7 +24,7 @@ class Customer(Base):
     ic_number = Column(String)
 
     # Reference to old system
-    linked_seda_registration = Column(String, ForeignKey("seda_registration.bubble_id"))
+    linked_seda_registration = Column(String)
     linked_old_customer = Column(String)
 
     # Metadata

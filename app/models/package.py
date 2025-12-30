@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Text, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Text, ARRAY
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -8,14 +8,22 @@ class Package(Base):
     id = Column(Integer, primary_key=True, index=True)
     bubble_id = Column(String, unique=True, nullable=False, index=True)
     
-    name = Column(String, nullable=False)
-    description = Column(Text)
-    price = Column(Numeric(15, 2), nullable=False)
-    
-    # Storing items as JSON for simplicity in this "Package" definition
-    # Structure: [{"description": "Service A", "qty": 1, "unit_price": 100}, ...]
-    items = Column(JSON, default=list)
-
-    active = Column(Boolean, default=True)
+    # Actual columns from database schema (verified)
+    last_synced_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    linked_package_item = Column(ARRAY(String))  # Array of bubble_ids
+    package_name = Column(String)
+    created_date = Column(DateTime(timezone=True))
+    price = Column(Numeric)
+    panel = Column(String)  # Panel rating/reference
+    active = Column(Boolean)
+    modified_date = Column(DateTime(timezone=True))
+    need_approval = Column(Boolean)
+    invoice_desc = Column(Text)  # Description for invoice items
+    panel_qty = Column(Integer)  # Panel quantity
+    created_by = Column(String)
+    max_discount = Column(Integer)
+    type = Column(String)  # e.g., "Residential"
+    special = Column(Boolean)
+    password = Column(String)

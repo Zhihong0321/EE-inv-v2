@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Text, ForeignKey, ARRAY
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, and_
 from app.database import Base
 
@@ -36,9 +37,11 @@ class InvoiceNew(Base):
 
     # Amounts
     subtotal = Column(Numeric(15, 2), nullable=False, default=0)
+    agent_markup = Column(Numeric(15, 2), default=0)  # Hidden markup added to subtotal
     sst_rate = Column(Numeric(5, 2), default=8)  # 8% SST by default
     sst_amount = Column(Numeric(15, 2), nullable=False, default=0)
     discount_amount = Column(Numeric(15, 2), nullable=False, default=0)
+    discount_fixed = Column(Numeric(15, 2), default=0)  # Fixed amount discount
     discount_percent = Column(Numeric(5, 2))
     voucher_code = Column(String)
     voucher_amount = Column(Numeric(15, 2), default=0)
@@ -72,6 +75,14 @@ class InvoiceNew(Base):
     viewed_at = Column(DateTime(timezone=True))
     paid_at = Column(DateTime(timezone=True))
 
+    # Relationships
+    items = relationship("InvoiceNewItem", back_populates="invoice", cascade="all, delete-orphan")
+    payments = relationship("InvoicePaymentNew", back_populates="invoice", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        """Convert model to dictionary for JSON serialization"""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 
 class InvoiceNewItem(Base):
     __tablename__ = "invoice_new_item"
@@ -92,10 +103,16 @@ class InvoiceNewItem(Base):
     discount_percent = Column(Numeric(5, 2), default=0)
     total_price = Column(Numeric(15, 2), nullable=False)
 
+    # Item type: package, discount, voucher, adjustment, addon
+    item_type = Column(String, default="package")  # NEW: Distinguish item types
+
     # Sort order for display
     sort_order = Column(Integer, default=0)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    invoice = relationship("InvoiceNew", back_populates="items")
 
 
 class InvoicePaymentNew(Base):
@@ -125,6 +142,9 @@ class InvoicePaymentNew(Base):
     # Metadata
     created_by = Column(String, ForeignKey("auth_user.user_id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    invoice = relationship("InvoiceNew", back_populates="payments")
 
 
 class AuditLog(Base):

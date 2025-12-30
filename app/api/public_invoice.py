@@ -1,21 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, Union
 from app.database import get_db
 from app.schemas.invoice import InvoiceResponse
 from app.repositories.invoice_repo import InvoiceRepository
+from app.utils.html_generator import generate_invoice_html
 from app.services.whatsapp_service import whatsapp_service
 from app.config import settings
 
 router = APIRouter(tags=["Public Invoice Share"])
 
 
-@router.get("/view/{share_token}", response_model=InvoiceResponse)
+@router.get("/view/{share_token}", response_class=Union[HTMLResponse, InvoiceResponse])
 def view_shared_invoice(
     share_token: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    """Public view of invoice via share link (no auth required)"""
+    """Public view of invoice via share link (returns HTML for browsers, JSON for others)"""
     invoice_repo = InvoiceRepository(db)
     invoice = invoice_repo.get_by_share_token(share_token)
 
@@ -27,6 +30,38 @@ def view_shared_invoice(
 
     # Record view
     invoice_repo.record_view(invoice.bubble_id)
+
+    # Check accept header for HTML
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        # Fetch template data
+        template_data = {}
+        if invoice.template_id:
+            template = invoice_repo.get_template(invoice.template_id)
+            if template:
+                template_data = template
+        
+        # Convert invoice to dict for html_generator
+        invoice_dict = invoice.to_dict()
+        # Add items to invoice_dict
+        invoice_dict["items"] = [
+            {
+                "description": item.description,
+                "qty": float(item.qty),
+                "unit_price": float(item.unit_price),
+                "total_price": float(item.total_price)
+            } for item in invoice.items
+        ]
+        
+        html_content = generate_invoice_html(invoice_dict, template_data)
+        return HTMLResponse(
+            content=html_content,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
 
     return invoice
 
