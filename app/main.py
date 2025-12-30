@@ -423,49 +423,49 @@ async def create_invoice_page(
 # Include routers - LAZY IMPORT to prevent app crash if routers fail
 try:
     from app.api import auth
-    app.include_router(auth.router)
+app.include_router(auth.router)
 except Exception as e:
     logger.error(f"Failed to load auth router: {e}")
 
 try:
     from app.api import customers
-    app.include_router(customers.router)
+app.include_router(customers.router)
 except Exception as e:
     logger.error(f"Failed to load customers router: {e}")
 
 try:
     from app.api import templates
-    app.include_router(templates.router)
+app.include_router(templates.router)
 except Exception as e:
     logger.error(f"Failed to load templates router: {e}")
 
 try:
     from app.api import invoices
-    app.include_router(invoices.router)
+app.include_router(invoices.router)
 except Exception as e:
     logger.error(f"Failed to load invoices router: {e}")
 
 try:
     from app.api import old_invoices
-    app.include_router(old_invoices.router)
+app.include_router(old_invoices.router)
 except Exception as e:
     logger.error(f"Failed to load old_invoices router: {e}")
 
 try:
     from app.api import public_invoice
-    app.include_router(public_invoice.router)
+app.include_router(public_invoice.router)
 except Exception as e:
     logger.error(f"Failed to load public_invoice router: {e}")
 
 try:
     from app.api import migration
-    app.include_router(migration.router)
+app.include_router(migration.router)
 except Exception as e:
     logger.error(f"Failed to load migration router: {e}")
 
 try:
     from app.api import demo
-    app.include_router(demo.router)
+app.include_router(demo.router)
 except Exception as e:
     logger.error(f"Failed to load demo router: {e}")
 
