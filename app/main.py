@@ -68,19 +68,19 @@ async def lifespan(app: FastAPI):
     
     app.state.start_time = time.time()
     
-    # Log all registered routes at startup
-    logger.info("=" * 80)
-    logger.info("REGISTERED ROUTES:")
-    for route in app.routes:
-        if hasattr(route, 'path') and hasattr(route, 'methods'):
-            logger.info(f"  {list(route.methods)} {route.path}")
-    logger.info("=" * 80)
-    logger.info(f"✅ /create-invoice route should be registered at: GET /create-invoice")
-    
     # Start DB initialization in background
     asyncio.create_task(initialize_db())
     
     yield
+    
+    # Log all registered routes AFTER all routes are registered (at end of startup)
+    logger.info("=" * 80)
+    logger.info("FINAL REGISTERED ROUTES (after all registrations):")
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            logger.info(f"  {list(route.methods)} {route.path}")
+    logger.info("=" * 80)
+    logger.info(f"✅ /create-invoice route registered: {'/create-invoice' in [r.path for r in app.routes if hasattr(r, 'path')]}")
 
 # Create FastAPI app
 app = FastAPI(
@@ -94,6 +94,7 @@ app = FastAPI(
 @app.get("/test-route-works")
 async def test_route_works():
     """Absolute minimal test route - no dependencies"""
+    logger.info("✅ /test-route-works HIT!")
     return {"status": "OK", "message": "Routes are working!", "route": "/test-route-works"}
 
 # Railway deployment verification route
@@ -134,6 +135,7 @@ app.add_middleware(
 @app.get("/test-create-invoice-simple", response_class=HTMLResponse)
 async def test_create_invoice_simple():
     """Super simple test route - no dependencies"""
+    logger.info("✅ /test-create-invoice-simple HIT!")
     return HTMLResponse(
         content="""
         <!DOCTYPE html>
