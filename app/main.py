@@ -96,6 +96,21 @@ async def test_route_works():
     """Absolute minimal test route - no dependencies"""
     return {"status": "OK", "message": "Routes are working!", "route": "/test-route-works"}
 
+# Railway deployment verification route
+@app.get("/railway-deploy-check")
+async def railway_deploy_check():
+    """Verify Railway deployment is using latest code"""
+    all_routes = [r.path for r in app.routes if hasattr(r, 'path')]
+    return {
+        "status": "OK",
+        "deployment": "latest",
+        "timestamp": __import__("time").time(),
+        "routes_registered": len(all_routes),
+        "create_invoice_route": "/create-invoice" in all_routes,
+        "test_route": "/test-create-invoice-simple" in all_routes,
+        "sample_routes": [r for r in all_routes if "create-invoice" in r or "test" in r][:10]
+    }
+
 # Global Exception Handler to prevent raw text "Internal Server Error"
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
