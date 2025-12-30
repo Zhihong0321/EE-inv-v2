@@ -124,6 +124,18 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": str(exc), "type": type(exc).__name__, "status": "error"}
     )
 
+# Request logging middleware - LOG EVERY REQUEST
+@app.middleware("http")
+async def log_all_requests(request: Request, call_next):
+    logger.error("=" * 80)
+    logger.error(f"🚨 INCOMING REQUEST: {request.method} {request.url.path}")
+    logger.error(f"Full URL: {request.url}")
+    logger.error(f"Headers: {dict(request.headers)}")
+    logger.error("=" * 80)
+    response = await call_next(request)
+    logger.error(f"Response status: {response.status_code}")
+    return response
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -173,7 +185,12 @@ async def create_invoice_page(
     """
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"🔍 /create-invoice route HIT! URL: {request.url}, package_id: {package_id}")
+    logger.error("=" * 80)
+    logger.error("🚨 /create-invoice ROUTE HANDLER EXECUTED!")
+    logger.error(f"URL: {request.url}")
+    logger.error(f"Method: {request.method}")
+    logger.error(f"Headers: {dict(request.headers)}")
+    logger.error("=" * 80)
     
     from urllib.parse import unquote, parse_qs
     import os
