@@ -1268,7 +1268,7 @@ async def admin_guides():
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     guides[key] = f.read()
-                    except:
+            except:
                 guides[key] = f"Error reading {filename}"
         else:
             guides[key] = f"File {filename} not found"
