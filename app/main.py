@@ -258,9 +258,7 @@ async def create_invoice_page(
                         debug_info.append(f"Package ID searched: {package_id}")
                         debug_info.append("Possible causes: Package ID is incorrect, package was deleted, or database connection issue")
                     else:
-                        # Handle case where package_name might not exist in database
-                        package_name = getattr(package, 'package_name', None) or getattr(package, 'name', None) or f"Package {package.bubble_id}"
-                        debug_info.append(f"✅ Package found: {package_name}")
+                        debug_info.append(f"✅ Package found: {package.package_name}")
                 except Exception as e:
                     error_message = f"⚠️ Database Error: Failed to check package. Error: {str(e)}"
                     debug_info.append(f"Database error details: {traceback.format_exc()}")
