@@ -251,14 +251,30 @@ async def create_invoice_page(
         if package_id:
             if db:
                 try:
-                    from app.models.package import Package
-                    package = db.query(Package).filter(Package.bubble_id == package_id).first()
-                    if not package:
+                    from sqlalchemy import text
+                    # Use raw SQL to avoid package_name column that doesn't exist in production
+                    result = db.execute(
+                        text("SELECT bubble_id, price, panel, panel_qty, invoice_desc, type FROM package WHERE bubble_id = :bubble_id"),
+                        {"bubble_id": package_id}
+                    )
+                    row = result.fetchone()
+                    if not row:
                         error_message = f"⚠️ Package Not Found: The Package ID '{package_id}' does not exist in the database."
                         debug_info.append(f"Package ID searched: {package_id}")
                         debug_info.append("Possible causes: Package ID is incorrect, package was deleted, or database connection issue")
+                        package = None
                     else:
-                        debug_info.append(f"✅ Package found: {package.package_name}")
+                        # Create a simple object with the data
+                        package = type('Package', (), {
+                            'bubble_id': row[0],
+                            'price': row[1],
+                            'panel': row[2],
+                            'panel_qty': row[3],
+                            'invoice_desc': row[4],
+                            'type': row[5]
+                        })()
+                        package_display = package.invoice_desc or f"Package {package.bubble_id}"
+                        debug_info.append(f"✅ Package found: {package_display}")
                 except Exception as e:
                     error_message = f"⚠️ Database Error: Failed to check package. Error: {str(e)}"
                     debug_info.append(f"Database error details: {traceback.format_exc()}")
