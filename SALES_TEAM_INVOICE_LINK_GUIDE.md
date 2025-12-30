@@ -51,7 +51,7 @@ The Invoice Creation Page is a web-based form that allows sales agents to create
 https://your-domain.com/create-invoice
 ```
 
-**Note:** Replace `your-domain.com` with your actual production domain (e.g., `ee-invoicing-v2-production.railway.app`)
+**Note:** Replace `your-domain.com` with your actual production domain (e.g., `ee-inv-v2-production.up.railway.app`)
 
 **How to Find Your Production Domain:**
 1. Go to Railway Dashboard: https://railway.app
