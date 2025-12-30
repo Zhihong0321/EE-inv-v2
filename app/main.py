@@ -5,7 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from app.config import settings
-from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration, demo
+# CRITICAL: Don't import routers at top level - they might fail and prevent app from starting
+# from app.api import auth, customers, templates, invoices, old_invoices, public_invoice, migration, demo
 from app.database import get_db
 from contextlib import asynccontextmanager
 import os
@@ -62,7 +63,19 @@ async def lifespan(app: FastAPI):
     Handles database initialization gracefully.
     """
     import time
+    import logging
+    logger = logging.getLogger(__name__)
+    
     app.state.start_time = time.time()
+    
+    # Log all registered routes at startup
+    logger.info("=" * 80)
+    logger.info("REGISTERED ROUTES:")
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            logger.info(f"  {list(route.methods)} {route.path}")
+    logger.info("=" * 80)
+    logger.info(f"✅ /create-invoice route should be registered at: GET /create-invoice")
     
     # Start DB initialization in background
     asyncio.create_task(initialize_db())
@@ -76,6 +89,12 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# CRITICAL: Add absolute minimal route FIRST to test if routes work at all
+@app.get("/test-route-works")
+async def test_route_works():
+    """Absolute minimal test route - no dependencies"""
+    return {"status": "OK", "message": "Routes are working!", "route": "/test-route-works"}
 
 # Global Exception Handler to prevent raw text "Internal Server Error"
 @app.exception_handler(Exception)
@@ -96,6 +115,25 @@ app.add_middleware(
 )
 
 
+# SIMPLE TEST ROUTE - No dependencies, always works
+@app.get("/test-create-invoice-simple", response_class=HTMLResponse)
+async def test_create_invoice_simple():
+    """Super simple test route - no dependencies"""
+    return HTMLResponse(
+        content="""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Test Route Working</title></head>
+        <body>
+            <h1>✅ Test Route Working!</h1>
+            <p>If you see this, routes are registering correctly.</p>
+            <p><a href="/create-invoice">Try /create-invoice</a></p>
+        </body>
+        </html>
+        """,
+        status_code=200
+    )
+
 # Invoice creation page route - MUST be registered BEFORE routers to avoid conflicts
 @app.get("/create-invoice", response_class=HTMLResponse)
 async def create_invoice_page(
@@ -107,13 +145,16 @@ async def create_invoice_page(
     customer_name: Optional[str] = Query(None, description="Customer name (optional)"),
     customer_phone: Optional[str] = Query(None, description="Customer phone (optional)"),
     customer_address: Optional[str] = Query(None, description="Customer address (optional)"),
-    template_id: Optional[str] = Query(None, description="Template ID (optional)"),
-    db: Session = Depends(get_db)
+    template_id: Optional[str] = Query(None, description="Template ID (optional)")
 ):
     """
     Invoice creation page - ALWAYS shows the page, even with errors.
     Clear error messages and full visibility.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔍 /create-invoice route HIT! URL: {request.url}, package_id: {package_id}")
+    
     from urllib.parse import unquote, parse_qs
     import os
     import traceback
@@ -123,6 +164,10 @@ async def create_invoice_page(
     error_message = None
     warning_message = None
     debug_info = []
+    debug_info.append(f"✅ Route accessed successfully")
+    debug_info.append(f"URL: {request.url}")
+    debug_info.append(f"Method: {request.method}")
+    debug_info.append(f"Package ID from query: {package_id}")
     
     try:
         # Handle double-encoded URLs
@@ -154,20 +199,35 @@ async def create_invoice_page(
                 except Exception as e:
                     warning_message = f"URL parsing warning: {str(e)}"
         
+        # Try to get database session (optional - route works without it)
+        db = None
+        try:
+            from app.database import get_db
+            db = next(get_db())
+            debug_info.append("✅ Database connection successful")
+        except Exception as db_error:
+            logger.warning(f"Database connection failed: {db_error}")
+            debug_info.append(f"⚠️ Database connection failed: {str(db_error)}")
+            warning_message = "Database connection unavailable. Some features may be limited."
+        
         # Try to fetch package if package_id provided
         if package_id:
-            try:
-                from app.models.package import Package
-                package = db.query(Package).filter(Package.bubble_id == package_id).first()
-                if not package:
-                    error_message = f"⚠️ Package Not Found: The Package ID '{package_id}' does not exist in the database."
-                    debug_info.append(f"Package ID searched: {package_id}")
-                    debug_info.append("Possible causes: Package ID is incorrect, package was deleted, or database connection issue")
-                else:
-                    debug_info.append(f"✅ Package found: {package.package_name}")
-            except Exception as e:
-                error_message = f"⚠️ Database Error: Failed to check package. Error: {str(e)}"
-                debug_info.append(f"Database error details: {traceback.format_exc()}")
+            if db:
+                try:
+                    from app.models.package import Package
+                    package = db.query(Package).filter(Package.bubble_id == package_id).first()
+                    if not package:
+                        error_message = f"⚠️ Package Not Found: The Package ID '{package_id}' does not exist in the database."
+                        debug_info.append(f"Package ID searched: {package_id}")
+                        debug_info.append("Possible causes: Package ID is incorrect, package was deleted, or database connection issue")
+                    else:
+                        debug_info.append(f"✅ Package found: {package.package_name}")
+                except Exception as e:
+                    error_message = f"⚠️ Database Error: Failed to check package. Error: {str(e)}"
+                    debug_info.append(f"Database error details: {traceback.format_exc()}")
+            else:
+                error_message = f"⚠️ Cannot check package: Database connection unavailable. Package ID provided: {package_id}"
+                debug_info.append("Database connection is required to verify package ID")
         else:
             warning_message = "ℹ️ No Package ID provided. You can enter a Package ID below or continue without one."
         
@@ -327,20 +387,67 @@ async def create_invoice_page(
                     </div>
                 </div>
             </body>
-            </html>
+                </html>
             """,
             status_code=200  # Always return 200 - never return 404 or 500
         )
+    finally:
+        # Close database session if it was opened
+        if 'db' in locals() and db:
+            try:
+                db.close()
+            except:
+                pass
 
-# Include routers
-app.include_router(auth.router)
-app.include_router(customers.router)
-app.include_router(templates.router)
-app.include_router(invoices.router)
-app.include_router(old_invoices.router)
-app.include_router(public_invoice.router)
-app.include_router(migration.router)
-app.include_router(demo.router)
+
+# Include routers - LAZY IMPORT to prevent app crash if routers fail
+try:
+    from app.api import auth
+    app.include_router(auth.router)
+except Exception as e:
+    logger.error(f"Failed to load auth router: {e}")
+
+try:
+    from app.api import customers
+    app.include_router(customers.router)
+except Exception as e:
+    logger.error(f"Failed to load customers router: {e}")
+
+try:
+    from app.api import templates
+    app.include_router(templates.router)
+except Exception as e:
+    logger.error(f"Failed to load templates router: {e}")
+
+try:
+    from app.api import invoices
+    app.include_router(invoices.router)
+except Exception as e:
+    logger.error(f"Failed to load invoices router: {e}")
+
+try:
+    from app.api import old_invoices
+    app.include_router(old_invoices.router)
+except Exception as e:
+    logger.error(f"Failed to load old_invoices router: {e}")
+
+try:
+    from app.api import public_invoice
+    app.include_router(public_invoice.router)
+except Exception as e:
+    logger.error(f"Failed to load public_invoice router: {e}")
+
+try:
+    from app.api import migration
+    app.include_router(migration.router)
+except Exception as e:
+    logger.error(f"Failed to load migration router: {e}")
+
+try:
+    from app.api import demo
+    app.include_router(demo.router)
+except Exception as e:
+    logger.error(f"Failed to load demo router: {e}")
 
 
 # Health check
@@ -1161,7 +1268,7 @@ async def admin_guides():
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     guides[key] = f.read()
-            except:
+                    except:
                 guides[key] = f"Error reading {filename}"
         else:
             guides[key] = f"File {filename} not found"
@@ -1436,6 +1543,46 @@ async def random_package_link(db: Session = Depends(get_db)):
     </html>
     """
 
+
+# CATCH-ALL ROUTE - Must be LAST to catch any unmatched routes
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def catch_all(request: Request, path: str):
+    """Catch-all route to debug why routes aren't working"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"❌ CATCH-ALL ROUTE HIT! Path: {path}, Method: {request.method}")
+    logger.error(f"Request URL: {request.url}")
+    logger.error(f"All registered routes: {[r.path for r in app.routes if hasattr(r, 'path')]}")
+    
+    return HTMLResponse(
+        content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Route Debug - {path}</title></head>
+        <body style="font-family: monospace; padding: 20px;">
+            <h1>🔍 Route Debug Information</h1>
+            <h2>Request Details:</h2>
+            <ul>
+                <li><strong>Path:</strong> {path}</li>
+                <li><strong>Method:</strong> {request.method}</li>
+                <li><strong>Full URL:</strong> {request.url}</li>
+                <li><strong>Query String:</strong> {request.url.query}</li>
+            </ul>
+            <h2>Registered Routes:</h2>
+            <ul>
+                {"".join([f"<li>{r.path} ({list(r.methods) if hasattr(r, 'methods') else 'N/A'})</li>" for r in app.routes if hasattr(r, 'path')])}
+            </ul>
+            <h2>Why This Route Was Hit:</h2>
+            <p>This catch-all route catches any request that doesn't match other routes.</p>
+            <p>If you're seeing this for /create-invoice, it means the route isn't registered.</p>
+            <p><a href="/test-route-works">Test JSON route</a></p>
+            <p><a href="/test-create-invoice-simple">Test HTML route</a></p>
+            <p><a href="/api/v1/health">Health check</a></p>
+        </body>
+        </html>
+        """,
+        status_code=200
+    )
 
 if __name__ == "__main__":
     import uvicorn
