@@ -62,7 +62,7 @@ Added try-catch blocks to show helpful error messages if template rendering fail
 
 **Test URL:**
 ```
-https://ee-invoicing-v2-production.railway.app/test-create-invoice
+https://ee-inv-v2-production.up.railway.app/test-create-invoice
 ```
 
 **Expected:** Should show "Test Route Working!" message

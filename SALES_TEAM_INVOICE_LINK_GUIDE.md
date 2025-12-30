@@ -57,8 +57,8 @@ https://your-domain.com/create-invoice
 1. Go to Railway Dashboard: https://railway.app
 2. Select your project → Your Invoicing Service
 3. Go to Settings → Public Domain
-4. Copy the domain (e.g., `ee-invoicing-v2-production-xxxx`)
-5. Your base URL: `https://ee-invoicing-v2-production-xxxx.railway.app/create-invoice`
+4. Copy the domain (e.g., `ee-inv-v2-production.up.railway.app`)
+5. Your base URL: `https://ee-inv-v2-production.up.railway.app/create-invoice`
 
 ### Localhost/Development URL
 

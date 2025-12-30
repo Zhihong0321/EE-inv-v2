@@ -41,7 +41,7 @@ https://your-app-name.railway.app/create-invoice
 4. Click on your **Invoicing Service** (FastAPI app)
 5. Go to **Settings** tab
 6. Find **Public Domain** section
-7. Copy the URL (e.g., `https://ee-invoicing-v2-production-xxxx.railway.app`)
+7. Copy the URL (e.g., `https://ee-inv-v2-production.up.railway.app-xxxx.railway.app`)
 
 #### Method 2: Railway Service Settings
 1. Railway Dashboard → Your Project
@@ -52,8 +52,8 @@ https://your-app-name.railway.app/create-invoice
 
 **Example Production URLs:**
 ```
-https://ee-invoicing-v2-production-xxxx.railway.app/create-invoice
-https://ee-invoicing-v2-production-xxxx.railway.app/create-invoice?package_id=1703833647950x572894707690242050
+https://ee-inv-v2-production.up.railway.app-xxxx.railway.app/create-invoice
+https://ee-inv-v2-production.up.railway.app-xxxx.railway.app/create-invoice?package_id=1703833647950x572894707690242050
 ```
 
 ---
@@ -161,12 +161,12 @@ https://[your-railway-domain].railway.app/create-invoice
 
 5. **Generate/Copy Domain**
    - If no domain exists, click **"Generate Domain"**
-   - Copy the domain (e.g., `ee-invoicing-v2-production-xxxx`)
-   - Your full URL: `https://ee-invoicing-v2-production-xxxx.railway.app`
+   - Copy the domain (e.g., `ee-inv-v2-production.up.railway.app-xxxx`)
+   - Your full URL: `https://ee-inv-v2-production.up.railway.app-xxxx.railway.app`
 
 6. **Access Invoice Page**
    - Add `/create-invoice` to the domain
-   - Full URL: `https://ee-invoicing-v2-production-xxxx.railway.app/create-invoice`
+   - Full URL: `https://ee-inv-v2-production.up.railway.app-xxxx.railway.app/create-invoice`
 
 ---
 
@@ -382,4 +382,7 @@ http://localhost:8080/create-invoice?package_id=1703833647950x572894707690242050
 **Last Updated:** 2025-01-30  
 **Route:** `/create-invoice` (GET)  
 **Status:** ✅ Publicly accessible
+
+
+
 
