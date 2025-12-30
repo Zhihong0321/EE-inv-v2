@@ -1104,6 +1104,12 @@ async def admin_guides():
     """
 
 
+# Test route to verify server is working
+@app.get("/test-create-invoice", response_class=HTMLResponse)
+async def test_create_invoice():
+    """Test route to verify /create-invoice route is accessible"""
+    return HTMLResponse(content="<h1>Test Route Working!</h1><p>If you see this, the server is responding.</p><p><a href='/create-invoice'>Try /create-invoice</a></p>")
+
 # Invoice creation page from URL parameters (Mobile-First Design)
 @app.get("/create-invoice", response_class=HTMLResponse)
 async def create_invoice_page(
@@ -1124,6 +1130,7 @@ async def create_invoice_page(
     Handles both normal URLs and double-encoded URLs.
     """
     from urllib.parse import unquote, parse_qs
+    import os
     
     # Handle double-encoded URLs (e.g., package_id%3Dvalue instead of package_id=value)
     # This happens when URLs are encoded twice
@@ -1195,24 +1202,67 @@ async def create_invoice_page(
         current_user = None  # We'll check in JS
 
         # Return HTML template with pre-filled data
-        templates = Jinja2Templates(directory="app/templates")
-
-        return templates.TemplateResponse(
-            "create_invoice.html",
-            {
-                "request": request,
-                "user": current_user,
-                "package": package,
-                "package_id": package_id,
-                "error_message": error_message if 'error_message' in locals() else None,
-                "panel_qty": panel_qty,
-                "panel_rating": panel_rating,
-                "discount_given": discount_given,
-                "customer_name": customer_name,
-                "customer_phone": customer_phone,
-                "customer_address": customer_address,
-                "template_id": template_id
-            }
+        try:
+            import os
+            # Use absolute path for templates directory
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            template_dir = os.path.join(base_dir, "app", "templates")
+            templates = Jinja2Templates(directory=template_dir)
+            
+            return templates.TemplateResponse(
+                "create_invoice.html",
+                {
+                    "request": request,
+                    "user": current_user,
+                    "package": package,
+                    "package_id": package_id,
+                    "error_message": error_message if 'error_message' in locals() else None,
+                    "panel_qty": panel_qty,
+                    "panel_rating": panel_rating,
+                    "discount_given": discount_given,
+                    "customer_name": customer_name,
+                    "customer_phone": customer_phone,
+                    "customer_address": customer_address,
+                    "template_id": template_id
+                }
+            )
+        except Exception as e:
+            # Fallback if template rendering fails
+            import traceback
+            error_details = traceback.format_exc()
+            return HTMLResponse(
+                content=f"""
+                <!DOCTYPE html>
+                <html>
+                <head><title>Error</title></head>
+                <body>
+                    <h1>Error Loading Invoice Creation Page</h1>
+                    <p>Error: {str(e)}</p>
+                    <pre>{error_details}</pre>
+                    <p><a href="/admin/">Go to Dashboard</a></p>
+                </body>
+                </html>
+                """,
+                status_code=500
+            )
+    except Exception as e:
+        # Catch any other errors
+        import traceback
+        error_details = traceback.format_exc()
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>Error</title></head>
+            <body>
+                <h1>Error Loading Invoice Creation Page</h1>
+                <p>Error: {str(e)}</p>
+                <pre>{error_details}</pre>
+                <p><a href="/admin/">Go to Dashboard</a></p>
+            </body>
+            </html>
+            """,
+            status_code=500
         )
     finally:
         pass  # Session will be automatically closed by dependency injection
