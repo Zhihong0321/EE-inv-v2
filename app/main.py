@@ -96,6 +96,242 @@ app.add_middleware(
 )
 
 
+# Invoice creation page route - MUST be registered BEFORE routers to avoid conflicts
+@app.get("/create-invoice", response_class=HTMLResponse)
+async def create_invoice_page(
+    request: Request,
+    package_id: Optional[str] = Query(None, description="Package ID from package table"),
+    panel_qty: Optional[int] = Query(None, description="Panel quantity"),
+    panel_rating: Optional[str] = Query(None, description="Panel rating"),
+    discount_given: Optional[str] = Query(None, description="Discount amount or percent"),
+    customer_name: Optional[str] = Query(None, description="Customer name (optional)"),
+    customer_phone: Optional[str] = Query(None, description="Customer phone (optional)"),
+    customer_address: Optional[str] = Query(None, description="Customer address (optional)"),
+    template_id: Optional[str] = Query(None, description="Template ID (optional)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Invoice creation page - ALWAYS shows the page, even with errors.
+    Clear error messages and full visibility.
+    """
+    from urllib.parse import unquote, parse_qs
+    import os
+    import traceback
+    
+    # Initialize variables with defaults
+    package = None
+    error_message = None
+    warning_message = None
+    debug_info = []
+    
+    try:
+        # Handle double-encoded URLs
+        if not package_id and request.url.query:
+            query_str = str(request.url.query)
+            if '%3D' in query_str or '%26' in query_str:
+                try:
+                    decoded = unquote(query_str)
+                    parsed = parse_qs(decoded, keep_blank_values=True)
+                    if 'package_id' in parsed and parsed['package_id']:
+                        package_id = parsed['package_id'][0]
+                    if 'discount_given' in parsed and parsed['discount_given'] and not discount_given:
+                        discount_given = parsed['discount_given'][0]
+                    if 'panel_qty' in parsed and parsed['panel_qty'] and not panel_qty:
+                        try:
+                            panel_qty = int(parsed['panel_qty'][0])
+                        except:
+                            pass
+                    if 'panel_rating' in parsed and parsed['panel_rating'] and not panel_rating:
+                        panel_rating = parsed['panel_rating'][0]
+                    if 'customer_name' in parsed and parsed['customer_name'] and not customer_name:
+                        customer_name = parsed['customer_name'][0]
+                    if 'customer_phone' in parsed and parsed['customer_phone'] and not customer_phone:
+                        customer_phone = parsed['customer_phone'][0]
+                    if 'customer_address' in parsed and parsed['customer_address'] and not customer_address:
+                        customer_address = parsed['customer_address'][0]
+                    if 'template_id' in parsed and parsed['template_id'] and not template_id:
+                        template_id = parsed['template_id'][0]
+                except Exception as e:
+                    warning_message = f"URL parsing warning: {str(e)}"
+        
+        # Try to fetch package if package_id provided
+        if package_id:
+            try:
+                from app.models.package import Package
+                package = db.query(Package).filter(Package.bubble_id == package_id).first()
+                if not package:
+                    error_message = f"⚠️ Package Not Found: The Package ID '{package_id}' does not exist in the database."
+                    debug_info.append(f"Package ID searched: {package_id}")
+                    debug_info.append("Possible causes: Package ID is incorrect, package was deleted, or database connection issue")
+                else:
+                    debug_info.append(f"✅ Package found: {package.package_name}")
+            except Exception as e:
+                error_message = f"⚠️ Database Error: Failed to check package. Error: {str(e)}"
+                debug_info.append(f"Database error details: {traceback.format_exc()}")
+        else:
+            warning_message = "ℹ️ No Package ID provided. You can enter a Package ID below or continue without one."
+        
+        # Try to render template
+        try:
+            from fastapi.templating import Jinja2Templates
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            template_dir = os.path.join(base_dir, "app", "templates")
+            
+            # Verify template directory exists
+            if not os.path.exists(template_dir):
+                raise FileNotFoundError(f"Template directory not found: {template_dir}")
+            
+            template_file = os.path.join(template_dir, "create_invoice.html")
+            if not os.path.exists(template_file):
+                raise FileNotFoundError(f"Template file not found: {template_file}")
+            
+            templates = Jinja2Templates(directory=template_dir)
+            debug_info.append(f"✅ Template directory: {template_dir}")
+            debug_info.append(f"✅ Template file exists: {template_file}")
+            
+            return templates.TemplateResponse(
+                "create_invoice.html",
+                {
+                    "request": request,
+                    "user": None,
+                    "package": package,
+                    "package_id": package_id,
+                    "error_message": error_message,
+                    "warning_message": warning_message,
+                    "debug_info": debug_info,
+                    "panel_qty": panel_qty,
+                    "panel_rating": panel_rating,
+                    "discount_given": discount_given,
+                    "customer_name": customer_name,
+                    "customer_phone": customer_phone,
+                    "customer_address": customer_address,
+                    "template_id": template_id
+                }
+            )
+        except FileNotFoundError as e:
+            # Template file missing - show helpful error page
+            return HTMLResponse(
+                content=f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Template Error - Invoice Creation</title>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <script src="https://cdn.tailwindcss.com"></script>
+                </head>
+                <body class="bg-gray-100 min-h-screen p-4">
+                    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+                        <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Template File Missing</h1>
+                        <div class="bg-red-50 border-2 border-red-300 rounded p-4 mb-4">
+                            <p class="font-semibold text-red-900 mb-2">Error Details:</p>
+                            <p class="text-red-800">{str(e)}</p>
+                        </div>
+                        <div class="bg-yellow-50 border-2 border-yellow-300 rounded p-4 mb-4">
+                            <p class="font-semibold text-yellow-900 mb-2">What This Means:</p>
+                            <p class="text-yellow-800">The invoice creation form template file is missing from the server.</p>
+                        </div>
+                        <div class="bg-blue-50 border-2 border-blue-300 rounded p-4">
+                            <p class="font-semibold text-blue-900 mb-2">Debug Information:</p>
+                            <ul class="list-disc list-inside text-blue-800 space-y-1">
+                                {"".join([f"<li>{info}</li>" for info in debug_info])}
+                            </ul>
+                        </div>
+                        <div class="mt-6">
+                            <a href="/admin/" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+                                Go to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """,
+                status_code=200  # Still return 200 so page shows
+            )
+        except Exception as e:
+            # Template rendering error - show helpful error page
+            error_trace = traceback.format_exc()
+            return HTMLResponse(
+                content=f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Template Error - Invoice Creation</title>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <script src="https://cdn.tailwindcss.com"></script>
+                </head>
+                <body class="bg-gray-100 min-h-screen p-4">
+                    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+                        <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Template Rendering Error</h1>
+                        <div class="bg-red-50 border-2 border-red-300 rounded p-4 mb-4">
+                            <p class="font-semibold text-red-900 mb-2">Error:</p>
+                            <p class="text-red-800 font-mono">{str(e)}</p>
+                        </div>
+                        <div class="bg-yellow-50 border-2 border-yellow-300 rounded p-4 mb-4">
+                            <p class="font-semibold text-yellow-900 mb-2">What This Means:</p>
+                            <p class="text-yellow-800">The server encountered an error while trying to load the invoice creation form.</p>
+                        </div>
+                        <div class="bg-gray-50 border-2 border-gray-300 rounded p-4 mb-4">
+                            <p class="font-semibold text-gray-900 mb-2">Technical Details:</p>
+                            <pre class="text-xs overflow-auto bg-gray-900 text-green-400 p-4 rounded">{error_trace}</pre>
+                        </div>
+                        <div class="bg-blue-50 border-2 border-blue-300 rounded p-4 mb-4">
+                            <p class="font-semibold text-blue-900 mb-2">Debug Information:</p>
+                            <ul class="list-disc list-inside text-blue-800 space-y-1">
+                                {"".join([f"<li>{info}</li>" for info in debug_info]) if debug_info else "<li>No debug info available</li>"}
+                            </ul>
+                        </div>
+                        <div class="mt-6 space-x-4">
+                            <a href="/admin/" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+                                Go to Dashboard
+                            </a>
+                            <a href="/create-invoice" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold">
+                                Try Again
+                            </a>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """,
+                status_code=200  # Still return 200 so page shows
+            )
+    except Exception as e:
+        # Critical error - show error page but still return 200
+        error_trace = traceback.format_exc()
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Critical Error - Invoice Creation</title>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <script src="https://cdn.tailwindcss.com"></script>
+            </head>
+            <body class="bg-gray-100 min-h-screen p-4">
+                <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+                    <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Critical Error</h1>
+                    <div class="bg-red-50 border-2 border-red-300 rounded p-4 mb-4">
+                        <p class="font-semibold text-red-900 mb-2">Error:</p>
+                        <p class="text-red-800 font-mono">{str(e)}</p>
+                    </div>
+                    <div class="bg-gray-50 border-2 border-gray-300 rounded p-4 mb-4">
+                        <p class="font-semibold text-gray-900 mb-2">Full Error Trace:</p>
+                        <pre class="text-xs overflow-auto bg-gray-900 text-green-400 p-4 rounded">{error_trace}</pre>
+                    </div>
+                    <div class="mt-6">
+                        <a href="/admin/" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+                            Go to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """,
+            status_code=200  # Always return 200 - never return 404 or 500
+        )
+
 # Include routers
 app.include_router(auth.router)
 app.include_router(customers.router)
@@ -1109,163 +1345,6 @@ async def admin_guides():
 async def test_create_invoice():
     """Test route to verify /create-invoice route is accessible"""
     return HTMLResponse(content="<h1>Test Route Working!</h1><p>If you see this, the server is responding.</p><p><a href='/create-invoice'>Try /create-invoice</a></p>")
-
-# Invoice creation page from URL parameters (Mobile-First Design)
-@app.get("/create-invoice", response_class=HTMLResponse)
-async def create_invoice_page(
-    request: Request,
-    package_id: Optional[str] = Query(None, description="Package ID from package table"),
-    panel_qty: Optional[int] = Query(None, description="Panel quantity"),
-    panel_rating: Optional[str] = Query(None, description="Panel rating"),
-    discount_given: Optional[str] = Query(None, description="Discount amount or percent"),
-    customer_name: Optional[str] = Query(None, description="Customer name (optional)"),
-    customer_phone: Optional[str] = Query(None, description="Customer phone (optional)"),
-    customer_address: Optional[str] = Query(None, description="Customer address (optional)"),
-    template_id: Optional[str] = Query(None, description="Template ID (optional)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Invoice creation page accessible via URL with parameters.
-    
-    Handles both normal URLs and double-encoded URLs.
-    """
-    from urllib.parse import unquote, parse_qs
-    import os
-    
-    # Handle double-encoded URLs (e.g., package_id%3Dvalue instead of package_id=value)
-    # This happens when URLs are encoded twice
-    if not package_id and request.url.query:
-        query_str = str(request.url.query)
-        # Check if the query string itself contains encoded = or &
-        if '%3D' in query_str or '%26' in query_str:
-            try:
-                # Decode the entire query string once
-                decoded = unquote(query_str)
-                # Parse the decoded query string
-                parsed = parse_qs(decoded, keep_blank_values=True)
-                # Extract parameters
-                if 'package_id' in parsed and parsed['package_id']:
-                    package_id = parsed['package_id'][0]
-                if 'discount_given' in parsed and parsed['discount_given'] and not discount_given:
-                    discount_given = parsed['discount_given'][0]
-                if 'panel_qty' in parsed and parsed['panel_qty'] and not panel_qty:
-                    try:
-                        panel_qty = int(parsed['panel_qty'][0])
-                    except:
-                        pass
-                if 'panel_rating' in parsed and parsed['panel_rating'] and not panel_rating:
-                    panel_rating = parsed['panel_rating'][0]
-                if 'customer_name' in parsed and parsed['customer_name'] and not customer_name:
-                    customer_name = parsed['customer_name'][0]
-                if 'customer_phone' in parsed and parsed['customer_phone'] and not customer_phone:
-                    customer_phone = parsed['customer_phone'][0]
-                if 'customer_address' in parsed and parsed['customer_address'] and not customer_address:
-                    customer_address = parsed['customer_address'][0]
-                if 'template_id' in parsed and parsed['template_id'] and not template_id:
-                    template_id = parsed['template_id'][0]
-            except Exception as e:
-                # If parsing fails, continue with normal FastAPI parsing
-                pass
-    
-    """
-    Invoice creation page accessible via URL with parameters.
-
-    Sample URL: https://yourdomain.com/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=500
-
-    Workflow:
-    1. If package_id provided, validate it exists and show invoice form
-    2. If package_id not provided, show form to enter package_id
-    3. If user not logged in, redirect to login with return URL
-    4. Return HTML form with pre-filled data from URL parameters
-    5. Allow sales agent to edit customer info (optional)
-    6. Submit creates invoice linked to logged-in user
-    """
-    from app.models.package import Package
-    from app.models.auth import AuthUser
-    from fastapi.templating import Jinja2Templates
-
-    try:
-        package = None
-        # If package_id is provided, fetch the package
-        if package_id:
-            package = db.query(Package).filter(Package.bubble_id == package_id).first()
-            if not package:
-                # Show error but still render the form so user can try again
-                error_message = f"Package with ID '{package_id}' not found. Please check the Package ID and try again."
-            else:
-                error_message = None
-        else:
-            error_message = None
-
-        # Check authentication (for now, we'll render form without auth check)
-        # The form will handle auth via JavaScript and localStorage
-        current_user = None  # We'll check in JS
-
-        # Return HTML template with pre-filled data
-        try:
-            import os
-            # Use absolute path for templates directory
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            template_dir = os.path.join(base_dir, "app", "templates")
-            templates = Jinja2Templates(directory=template_dir)
-            
-            return templates.TemplateResponse(
-                "create_invoice.html",
-                {
-                    "request": request,
-                    "user": current_user,
-                    "package": package,
-                    "package_id": package_id,
-                    "error_message": error_message if 'error_message' in locals() else None,
-                    "panel_qty": panel_qty,
-                    "panel_rating": panel_rating,
-                    "discount_given": discount_given,
-                    "customer_name": customer_name,
-                    "customer_phone": customer_phone,
-                    "customer_address": customer_address,
-                    "template_id": template_id
-                }
-            )
-        except Exception as e:
-            # Fallback if template rendering fails
-            import traceback
-            error_details = traceback.format_exc()
-            return HTMLResponse(
-                content=f"""
-                <!DOCTYPE html>
-                <html>
-                <head><title>Error</title></head>
-                <body>
-                    <h1>Error Loading Invoice Creation Page</h1>
-                    <p>Error: {str(e)}</p>
-                    <pre>{error_details}</pre>
-                    <p><a href="/admin/">Go to Dashboard</a></p>
-                </body>
-                </html>
-                """,
-                status_code=500
-            )
-    except Exception as e:
-        # Catch any other errors
-        import traceback
-        error_details = traceback.format_exc()
-        return HTMLResponse(
-            content=f"""
-            <!DOCTYPE html>
-            <html>
-            <head><title>Error</title></head>
-            <body>
-                <h1>Error Loading Invoice Creation Page</h1>
-                <p>Error: {str(e)}</p>
-                <pre>{error_details}</pre>
-                <p><a href="/admin/">Go to Dashboard</a></p>
-            </body>
-            </html>
-            """,
-            status_code=500
-        )
-    finally:
-        pass  # Session will be automatically closed by dependency injection
 
 
 # Random Package Link Generator (For Testing)
