@@ -1561,45 +1561,7 @@ async def random_package_link(db: Session = Depends(get_db)):
     """
 
 
-# CATCH-ALL ROUTE - Must be LAST to catch any unmatched routes
-@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-async def catch_all(request: Request, path: str):
-    """Catch-all route to debug why routes aren't working"""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.error(f"❌ CATCH-ALL ROUTE HIT! Path: {path}, Method: {request.method}")
-    logger.error(f"Request URL: {request.url}")
-    logger.error(f"All registered routes: {[r.path for r in app.routes if hasattr(r, 'path')]}")
-    
-    return HTMLResponse(
-        content=f"""
-        <!DOCTYPE html>
-        <html>
-        <head><title>Route Debug - {path}</title></head>
-        <body style="font-family: monospace; padding: 20px;">
-            <h1>🔍 Route Debug Information</h1>
-            <h2>Request Details:</h2>
-            <ul>
-                <li><strong>Path:</strong> {path}</li>
-                <li><strong>Method:</strong> {request.method}</li>
-                <li><strong>Full URL:</strong> {request.url}</li>
-                <li><strong>Query String:</strong> {request.url.query}</li>
-            </ul>
-            <h2>Registered Routes:</h2>
-            <ul>
-                {"".join([f"<li>{r.path} ({list(r.methods) if hasattr(r, 'methods') else 'N/A'})</li>" for r in app.routes if hasattr(r, 'path')])}
-            </ul>
-            <h2>Why This Route Was Hit:</h2>
-            <p>This catch-all route catches any request that doesn't match other routes.</p>
-            <p>If you're seeing this for /create-invoice, it means the route isn't registered.</p>
-            <p><a href="/test-route-works">Test JSON route</a></p>
-            <p><a href="/test-create-invoice-simple">Test HTML route</a></p>
-            <p><a href="/api/v1/health">Health check</a></p>
-        </body>
-        </html>
-        """,
-        status_code=200
-    )
+# Catch-all route removed - routes should just work
 
 if __name__ == "__main__":
     import uvicorn
