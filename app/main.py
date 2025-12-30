@@ -68,19 +68,22 @@ async def lifespan(app: FastAPI):
     
     app.state.start_time = time.time()
     
-    # Start DB initialization in background
-    asyncio.create_task(initialize_db())
-    
-    yield
-    
-    # Log all registered routes AFTER all routes are registered (at end of startup)
+    # Log all registered routes BEFORE accepting requests
     logger.info("=" * 80)
-    logger.info("FINAL REGISTERED ROUTES (after all registrations):")
+    logger.info("REGISTERED ROUTES AT STARTUP:")
     for route in app.routes:
         if hasattr(route, 'path') and hasattr(route, 'methods'):
             logger.info(f"  {list(route.methods)} {route.path}")
     logger.info("=" * 80)
-    logger.info(f"✅ /create-invoice route registered: {'/create-invoice' in [r.path for r in app.routes if hasattr(r, 'path')]}")
+    create_invoice_registered = '/create-invoice' in [r.path for r in app.routes if hasattr(r, 'path')]
+    logger.info(f"✅ /create-invoice route registered: {create_invoice_registered}")
+    if not create_invoice_registered:
+        logger.error("❌ CRITICAL: /create-invoice route NOT FOUND in registered routes!")
+    
+    # Start DB initialization in background
+    asyncio.create_task(initialize_db())
+    
+    yield
 
 # Create FastAPI app
 app = FastAPI(
@@ -420,49 +423,49 @@ async def create_invoice_page(
 # Include routers - LAZY IMPORT to prevent app crash if routers fail
 try:
     from app.api import auth
-    app.include_router(auth.router)
+app.include_router(auth.router)
 except Exception as e:
     logger.error(f"Failed to load auth router: {e}")
 
 try:
     from app.api import customers
-    app.include_router(customers.router)
+app.include_router(customers.router)
 except Exception as e:
     logger.error(f"Failed to load customers router: {e}")
 
 try:
     from app.api import templates
-    app.include_router(templates.router)
+app.include_router(templates.router)
 except Exception as e:
     logger.error(f"Failed to load templates router: {e}")
 
 try:
     from app.api import invoices
-    app.include_router(invoices.router)
+app.include_router(invoices.router)
 except Exception as e:
     logger.error(f"Failed to load invoices router: {e}")
 
 try:
     from app.api import old_invoices
-    app.include_router(old_invoices.router)
+app.include_router(old_invoices.router)
 except Exception as e:
     logger.error(f"Failed to load old_invoices router: {e}")
 
 try:
     from app.api import public_invoice
-    app.include_router(public_invoice.router)
+app.include_router(public_invoice.router)
 except Exception as e:
     logger.error(f"Failed to load public_invoice router: {e}")
 
 try:
     from app.api import migration
-    app.include_router(migration.router)
+app.include_router(migration.router)
 except Exception as e:
     logger.error(f"Failed to load migration router: {e}")
 
 try:
     from app.api import demo
-    app.include_router(demo.router)
+app.include_router(demo.router)
 except Exception as e:
     logger.error(f"Failed to load demo router: {e}")
 
@@ -1285,7 +1288,7 @@ async def admin_guides():
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     guides[key] = f.read()
-            except:
+                    except:
                 guides[key] = f"Error reading {filename}"
         else:
             guides[key] = f"File {filename} not found"
