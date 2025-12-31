@@ -42,7 +42,7 @@ def generate_random_invoice_view(db: Session = Depends(get_db)):
         # Package table does NOT have items column - create item from invoice_desc and price
         if package and package.price:
             items = [{
-                "description": package.invoice_desc or package.package_name or "Package Item",
+                "description": package.invoice_desc or (package.name if hasattr(package, 'name') else f"Package {package.bubble_id}") or "Package Item",
                 "qty": 1,
                 "unit_price": float(package.price),
                 "total_price": float(package.price)
@@ -57,7 +57,7 @@ def generate_random_invoice_view(db: Session = Depends(get_db)):
             "price": 150.00
         })
         items = [{
-            "description": package.invoice_desc or package.package_name or "Package Item",
+            "description": package.invoice_desc or (package.name if hasattr(package, 'name') else f"Package {package.bubble_id}") or "Package Item",
             "qty": 1,
             "unit_price": float(package.price),
             "total_price": float(package.price)

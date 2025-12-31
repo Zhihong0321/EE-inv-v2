@@ -252,9 +252,9 @@ async def create_invoice_page(
             if db:
                 try:
                     from sqlalchemy import text
-                    # Use raw SQL to avoid package_name column that doesn't exist in production
+                    # Use raw SQL - package table has 'name' column, not 'package_name'
                     result = db.execute(
-                        text("SELECT bubble_id, price, panel, panel_qty, invoice_desc, type FROM package WHERE bubble_id = :bubble_id"),
+                        text("SELECT bubble_id, name, price, panel, panel_qty, invoice_desc, type FROM package WHERE bubble_id = :bubble_id"),
                         {"bubble_id": package_id}
                     )
                     row = result.fetchone()
@@ -267,13 +267,14 @@ async def create_invoice_page(
                         # Create a simple object with the data
                         package = type('Package', (), {
                             'bubble_id': row[0],
-                            'price': row[1],
-                            'panel': row[2],
-                            'panel_qty': row[3],
-                            'invoice_desc': row[4],
-                            'type': row[5]
+                            'name': row[1],  # Actual column name in database
+                            'price': row[2],
+                            'panel': row[3],
+                            'panel_qty': row[4],
+                            'invoice_desc': row[5],
+                            'type': row[6]
                         })()
-                        package_display = package.invoice_desc or f"Package {package.bubble_id}"
+                        package_display = package.name or package.invoice_desc or f"Package {package.bubble_id}"
                         debug_info.append(f"✅ Package found: {package_display}")
                 except Exception as e:
                     error_message = f"⚠️ Database Error: Failed to check package. Error: {str(e)}"

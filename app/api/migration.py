@@ -115,7 +115,8 @@ def migrate_old_invoices(
             # Get package info
             package_name = None
             if old_invoice.get("linked_package"):
-                package_query = text("SELECT package_name FROM package WHERE bubble_id = :package_id")
+                # Note: package table has 'name' column, not 'package_name'
+                package_query = text("SELECT name FROM package WHERE bubble_id = :package_id")
                 package_result = db.execute(package_query, {"package_id": old_invoice["linked_package"]}).fetchone()
                 if package_result:
                     package_name = package_result[0]

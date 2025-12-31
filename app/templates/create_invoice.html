@@ -86,7 +86,7 @@
             <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300">
                 <h2 class="font-bold text-lg mb-3 text-gray-900">Package Information</h2>
                 <div class="space-y-2 text-gray-800">
-                    <p><strong class="text-gray-900">Name:</strong> <span class="text-gray-800">{{ package.package_name }}</span></p>
+                    <p><strong class="text-gray-900">Name:</strong> <span class="text-gray-800">{% if package.name %}{{ package.name }}{% elif package.invoice_desc %}{{ package.invoice_desc }}{% else %}Package {{ package.bubble_id }}{% endif %}</span></p>
                     <p><strong class="text-gray-900">Price:</strong> <span class="text-gray-800 font-semibold">RM {{ package.price }}</span></p>
                     {% if package.invoice_desc %}
                     <div class="mt-3 pt-3 border-t border-blue-200">
@@ -123,7 +123,7 @@
             <form id="invoiceForm" class="space-y-4">
                 <input type="hidden" name="package_id" value="{{ package.bubble_id }}">
                 <input type="hidden" id="packagePrice" value="{{ package.price }}">
-                <input type="hidden" id="packageName" value="{{ package.package_name }}">
+                <input type="hidden" id="packageName" value="{% if package.name %}{{ package.name }}{% elif package.invoice_desc %}{{ package.invoice_desc }}{% else %}Package {{ package.bubble_id }}{% endif %}">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

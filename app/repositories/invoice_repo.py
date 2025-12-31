@@ -258,7 +258,7 @@ class InvoiceRepository:
             customer_address_snapshot=cust_address_snapshot,
             customer_email_snapshot=cust_email_snapshot,
             package_id=package_id,
-            package_name_snapshot=package.package_name,
+            package_name_snapshot=package.name if hasattr(package, 'name') else (package.invoice_desc or f"Package {package.bubble_id}"),
             template_id=template_id,
             discount_fixed=discount_fixed,
             discount_percent=discount_percent,
@@ -286,7 +286,7 @@ class InvoiceRepository:
         item = InvoiceNewItem(
             bubble_id=f"item_{secrets.token_hex(8)}",
             invoice=invoice,  # Use relationship for immediate update
-            description=package.invoice_desc or package.package_name or "Package Item",
+            description=package.invoice_desc or (package.name if hasattr(package, 'name') else f"Package {package.bubble_id}") or "Package Item",
             qty=Decimal(1),
             unit_price=unit_price,
             total_price=unit_price,

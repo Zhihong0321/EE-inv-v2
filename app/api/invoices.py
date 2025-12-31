@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -72,7 +73,7 @@ def create_invoice(
     if invoice_data.agent_id:
         # Query agent from old system
         result = db.execute(
-            "SELECT name FROM agent WHERE bubble_id = :agent_id",
+            text("SELECT name FROM agent WHERE bubble_id = :agent_id"),
             {"agent_id": invoice_data.agent_id}
         )
         row = result.fetchone()
@@ -81,8 +82,9 @@ def create_invoice(
 
     if invoice_data.package_id:
         # Query package from old system
+        # Note: package table has 'name' column, not 'package_name'
         result = db.execute(
-            "SELECT package_name FROM package WHERE bubble_id = :package_id",
+            text("SELECT name FROM package WHERE bubble_id = :package_id"),
             {"package_id": invoice_data.package_id}
         )
         row = result.fetchone()
