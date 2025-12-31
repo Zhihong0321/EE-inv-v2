@@ -503,6 +503,12 @@ try:
 except Exception as e:
     logger.error(f"Failed to load demo router: {e}")
 
+try:
+    from app.api import users
+    app.include_router(users.router)
+except Exception as e:
+    logger.error(f"Failed to load users router: {e}")
+
 
 # Health check
 @app.get("/api/v1/health")
@@ -640,56 +646,213 @@ async def admin_dashboard():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>EE Invoicing - Admin Dashboard</title>
-        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
         <style>
-            body { font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+            body { 
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            }
+            .stat-card {
+                transition: all 0.3s ease;
+            }
+            .stat-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            }
+            .action-card {
+                transition: all 0.2s ease;
+            }
+            .action-card:hover {
+                transform: translateX(4px);
+                background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+            }
+            .gradient-bg {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-out;
+            }
         </style>
     </head>
-    <body class="bg-gray-100 min-h-screen">
-        <nav class="bg-blue-600 text-white p-4">
-            <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-xl font-bold">EE Invoicing System</h1>
-                <div>
-                    <span id="user-info" class="mr-4"></span>
-                    <button onclick="logout()" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">Logout</button>
+    <body class="bg-gray-50 min-h-screen">
+        <!-- Top Navigation -->
+        <nav class="bg-white border-b border-gray-200 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <i class="fas fa-file-invoice text-indigo-600 text-2xl mr-3"></i>
+                            <h1 class="text-xl font-semibold text-gray-900">EE Invoicing</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <i class="fas fa-user-circle text-gray-400"></i>
+                            <span id="user-info" class="font-medium">Loading...</span>
+                        </div>
+                        <button onclick="logout()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>
+                            Logout
+                        </button>
+                    </div>
                 </div>
             </div>
         </nav>
 
-        <div class="container mx-auto p-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h2 class="text-gray-500 text-sm">Total Invoices</h2>
-                    <p id="total-invoices" class="text-3xl font-bold">-</p>
-                </div>
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h2 class="text-gray-500 text-sm">Total Customers</h2>
-                    <p id="total-customers" class="text-3xl font-bold">-</p>
-                </div>
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h2 class="text-gray-500 text-sm">Migrated Invoices</h2>
-                    <p id="migrated-invoices" class="text-3xl font-bold">-</p>
-                </div>
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Welcome Section -->
+            <div class="mb-8 fade-in">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-2">Dashboard</h2>
+                <p class="text-gray-600">Overview of your invoicing system</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h2 class="text-lg font-bold mb-4">Quick Actions</h2>
-                    <div class="space-y-2">
-                        <a href="/admin/invoices" class="block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Manage Invoices</a>
-                        <a href="/admin/templates" class="block bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Manage Templates</a>
-                        <a href="/admin/customers" class="block bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">Manage Customers</a>
-                        <a href="/admin/migration" class="block bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded">Data Migration</a>
-                        <a href="/admin/guides" class="block bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded">📚 Documentation & Guides</a>
-                        <a href="/demo/generate-invoice" target="_blank" class="block bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded">Preview Demo Invoice</a>
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 fade-in">
+                <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600 mb-1">Total Invoices</p>
+                            <p id="total-invoices" class="text-3xl font-bold text-gray-900">-</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-3">
+                            <i class="fas fa-file-invoice text-blue-600 text-xl"></i>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h2 class="text-lg font-bold mb-4">Migration Status</h2>
-                    <div id="migration-status" class="space-y-2">
-                        <p>Loading migration status...</p>
+                <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600 mb-1">Total Customers</p>
+                            <p id="total-customers" class="text-3xl font-bold text-gray-900">-</p>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-3">
+                            <i class="fas fa-users text-green-600 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600 mb-1">Migrated Invoices</p>
+                            <p id="migrated-invoices" class="text-3xl font-bold text-gray-900">-</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3">
+                            <i class="fas fa-sync-alt text-purple-600 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Quick Actions -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900">Quick Actions</h3>
+                            <i class="fas fa-bolt text-gray-400"></i>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="/admin/invoices" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-md transition-all">
+                                <div class="bg-blue-50 rounded-lg p-3 mr-4 group-hover:bg-blue-100 transition-colors">
+                                    <i class="fas fa-file-invoice text-blue-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 group-hover:text-indigo-600">Manage Invoices</p>
+                                    <p class="text-xs text-gray-500">View and manage all invoices</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-indigo-600"></i>
+                            </a>
+
+                            <a href="/admin/templates" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:shadow-md transition-all">
+                                <div class="bg-green-50 rounded-lg p-3 mr-4 group-hover:bg-green-100 transition-colors">
+                                    <i class="fas fa-file-alt text-green-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 group-hover:text-green-600">Manage Templates</p>
+                                    <p class="text-xs text-gray-500">Invoice templates</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-green-600"></i>
+                            </a>
+
+                            <a href="/admin/customers" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:shadow-md transition-all">
+                                <div class="bg-purple-50 rounded-lg p-3 mr-4 group-hover:bg-purple-100 transition-colors">
+                                    <i class="fas fa-user-friends text-purple-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 group-hover:text-purple-600">Manage Customers</p>
+                                    <p class="text-xs text-gray-500">Customer database</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-purple-600"></i>
+                            </a>
+
+                            <a href="/admin/users" class="action-card group flex items-center p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:shadow-md transition-all bg-indigo-50/30">
+                                <div class="bg-indigo-100 rounded-lg p-3 mr-4 group-hover:bg-indigo-200 transition-colors">
+                                    <i class="fas fa-users-cog text-indigo-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-indigo-900 group-hover:text-indigo-700">User Management</p>
+                                    <p class="text-xs text-indigo-600">Manage users & agents</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-indigo-400"></i>
+                            </a>
+
+                            <a href="/admin/migration" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:shadow-md transition-all">
+                                <div class="bg-orange-50 rounded-lg p-3 mr-4 group-hover:bg-orange-100 transition-colors">
+                                    <i class="fas fa-database text-orange-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 group-hover:text-orange-600">Data Migration</p>
+                                    <p class="text-xs text-gray-500">Migrate legacy data</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-orange-600"></i>
+                            </a>
+
+                            <a href="/admin/guides" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-teal-300 hover:shadow-md transition-all">
+                                <div class="bg-teal-50 rounded-lg p-3 mr-4 group-hover:bg-teal-100 transition-colors">
+                                    <i class="fas fa-book text-teal-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 group-hover:text-teal-600">Documentation</p>
+                                    <p class="text-xs text-gray-500">Guides & references</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-teal-600"></i>
+                            </a>
+
+                            <a href="/demo/generate-invoice" target="_blank" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-md transition-all">
+                                <div class="bg-indigo-50 rounded-lg p-3 mr-4 group-hover:bg-indigo-100 transition-colors">
+                                    <i class="fas fa-eye text-indigo-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 group-hover:text-indigo-600">Preview Demo</p>
+                                    <p class="text-xs text-gray-500">Invoice preview</p>
+                                </div>
+                                <i class="fas fa-external-link-alt text-gray-400 group-hover:text-indigo-600"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Migration Status -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900">Migration Status</h3>
+                            <i class="fas fa-chart-line text-gray-400"></i>
+                        </div>
+                        <div id="migration-status" class="space-y-4">
+                            <div class="flex items-center justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -700,11 +863,21 @@ async def admin_dashboard():
             let token = localStorage.getItem('access_token');
 
             async function fetchData(endpoint) {
-                const response = await fetch(API_BASE + endpoint, {
-                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-                });
-                if (response.ok) return await response.json();
-                return null;
+                try {
+                    const response = await fetch(API_BASE + endpoint, {
+                        headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                    });
+                    if (response.ok) return await response.json();
+                    return null;
+                } catch (e) {
+                    console.error('Fetch error:', e);
+                    return null;
+                }
+            }
+
+            function formatNumber(num) {
+                if (num === null || num === undefined) return '0';
+                return new Intl.NumberFormat('en-US').format(num);
             }
 
             async function loadDashboard() {
@@ -717,7 +890,8 @@ async def admin_dashboard():
                 // Load user info
                 const user = await fetchData('/auth/me');
                 if (user) {
-                    document.getElementById('user-info').textContent = user.name || user.whatsapp_number;
+                    const userName = user.name || user.whatsapp_number || 'User';
+                    document.getElementById('user-info').textContent = userName;
                 } else {
                     logout();
                     return;
@@ -725,19 +899,52 @@ async def admin_dashboard():
 
                 // Load stats
                 const invoices = await fetchData('/invoices?limit=1');
-                if (invoices) document.getElementById('total-invoices').textContent = invoices.total || 0;
+                if (invoices) {
+                    document.getElementById('total-invoices').textContent = formatNumber(invoices.total || 0);
+                }
 
                 const customers = await fetchData('/customers?limit=1');
-                if (customers) document.getElementById('total-customers').textContent = customers.total || 0;
+                if (customers) {
+                    document.getElementById('total-customers').textContent = formatNumber(customers.total || 0);
+                }
 
                 const migration = await fetchData('/migration/status');
                 if (migration) {
-                    document.getElementById('migrated-invoices').textContent = migration.migrated_count || 0;
+                    document.getElementById('migrated-invoices').textContent = formatNumber(migration.migrated_count || 0);
+                    
+                    const progress = migration.migration_percentage || 0;
+                    const progressColor = progress >= 80 ? 'bg-green-500' : progress >= 50 ? 'bg-yellow-500' : 'bg-blue-500';
+                    
                     document.getElementById('migration-status').innerHTML = `
-                        <p>Old Invoices: ${migration.old_invoice_count}</p>
-                        <p>Migrated: ${migration.migrated_count}</p>
-                        <p>Unmigrated: ${migration.unmigrated_count}</p>
-                        <p>Progress: ${migration.migration_percentage}%</p>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-gray-600">Migration Progress</span>
+                                    <span class="font-medium text-gray-900">${progress}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="${progressColor} h-2 rounded-full transition-all duration-500" style="width: ${progress}%"></div>
+                                </div>
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Old Invoices</span>
+                                    <span class="font-medium text-gray-900">${formatNumber(migration.old_invoice_count || 0)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Migrated</span>
+                                    <span class="font-medium text-green-600">${formatNumber(migration.migrated_count || 0)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Remaining</span>
+                                    <span class="font-medium text-orange-600">${formatNumber(migration.unmigrated_count || 0)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('migration-status').innerHTML = `
+                        <p class="text-sm text-gray-500 text-center py-4">Unable to load migration status</p>
                     `;
                 }
             }
@@ -747,6 +954,7 @@ async def admin_dashboard():
                 window.location.href = '/';
             }
 
+            // Load dashboard on page load
             loadDashboard();
         </script>
     </body>
@@ -1291,6 +1499,324 @@ async def admin_customers():
     <!DOCTYPE html>
     <html><head><title>Customers</title><meta http-equiv="refresh" content="0; url=/admin/" /></head>
     <body><script>alert("Customer management coming soon!"); window.location.href="/admin/";</script></body></html>
+    """
+
+@app.get("/admin/users", response_class=HTMLResponse)
+async def admin_users():
+    """User Management Page"""
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>EE Invoicing - User Management</title>
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body { font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+        </style>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <nav class="bg-blue-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <a href="/admin/" class="text-xl font-bold hover:text-blue-100">EE Invoicing System</a>
+                <div>
+                    <a href="/admin/" class="mr-4 hover:underline">Dashboard</a>
+                    <button onclick="logout()" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">User Management</h1>
+                <div class="flex space-x-2">
+                    <button onclick="openModal()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center">
+                        <i class="fas fa-plus mr-2"></i> New User
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="mb-6">
+                <input type="text" id="search-input" placeholder="Search by name, WhatsApp, or email..." 
+                    class="w-full border p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onkeyup="handleSearch(event)">
+            </div>
+
+            <div id="loading" class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+            </div>
+
+            <div id="users-list" class="hidden">
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Users will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 flex justify-between items-center">
+                    <p id="users-count" class="text-gray-600"></p>
+                    <div class="flex space-x-2">
+                        <button id="prev-btn" onclick="loadUsers('prev')" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded disabled:opacity-50" disabled>Previous</button>
+                        <button id="next-btn" onclick="loadUsers('next')" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded disabled:opacity-50">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Create/Edit User -->
+        <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 id="modal-title" class="text-xl font-bold">New User</h2>
+                        <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <form id="user-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="user_bubble_id">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Name *</label>
+                            <input type="text" id="name" required class="w-full border p-2 rounded mt-1">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">WhatsApp Number</label>
+                            <input type="text" id="whatsapp_number" class="w-full border p-2 rounded mt-1" placeholder="e.g., 60123456789">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Email</label>
+                            <input type="email" id="email" class="w-full border p-2 rounded mt-1">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Agent Profile ID (Optional)</label>
+                            <input type="text" id="linked_agent_profile" class="w-full border p-2 rounded mt-1" placeholder="Leave empty to create new agent profile">
+                            <p class="text-xs text-gray-500 mt-1">If provided, will link to existing agent profile. Otherwise, a new agent profile will be created.</p>
+                        </div>
+
+                        <div class="flex justify-end pt-4 space-x-3">
+                            <button type="button" onclick="closeModal()" class="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save User</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const API_BASE = '/api/v1';
+            let token = localStorage.getItem('access_token');
+            let currentPage = 0;
+            let pageSize = 50;
+            let totalUsers = 0;
+            let searchTerm = '';
+
+            if (!token) window.location.href = '/admin/login';
+
+            function formatDate(dateString) {
+                if (!dateString) return 'N/A';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            async function loadUsers(direction = null) {
+                if (direction === 'next') {
+                    currentPage++;
+                } else if (direction === 'prev') {
+                    currentPage = Math.max(0, currentPage - 1);
+                }
+
+                document.getElementById('loading').classList.remove('hidden');
+                document.getElementById('users-list').classList.add('hidden');
+
+                try {
+                    const params = new URLSearchParams({
+                        skip: (currentPage * pageSize).toString(),
+                        limit: pageSize.toString()
+                    });
+                    
+                    if (searchTerm) {
+                        params.append('search', searchTerm);
+                    }
+
+                    const response = await fetch(`${API_BASE}/users?${params}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            alert('Access denied. Only admins can access user management.');
+                            window.location.href = '/admin/';
+                            return;
+                        }
+                        throw new Error('Failed to fetch users');
+                    }
+                    
+                    const data = await response.json();
+                    renderUsers(data.users);
+                    totalUsers = data.total;
+                    updatePagination();
+                } catch (e) {
+                    console.error(e);
+                    alert('Error loading users: ' + e.message);
+                } finally {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('users-list').classList.remove('hidden');
+                }
+            }
+
+            function renderUsers(users) {
+                const tbody = document.getElementById('users-table-body');
+                tbody.innerHTML = '';
+
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No users found</td></tr>';
+                    return;
+                }
+
+                users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">${user.name || 'N/A'}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${user.whatsapp_number || 'N/A'}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${user.email || 'N/A'}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">${formatDate(user.registration_date)}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick='editUser(${JSON.stringify(user).replace(/'/g, "&#39;")})' 
+                                class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('users-count').textContent = 
+                    `Showing ${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, totalUsers)} of ${totalUsers} users`;
+            }
+
+            function updatePagination() {
+                document.getElementById('prev-btn').disabled = currentPage === 0;
+                document.getElementById('next-btn').disabled = (currentPage + 1) * pageSize >= totalUsers;
+            }
+
+            function handleSearch(event) {
+                if (event.key === 'Enter') {
+                    searchTerm = event.target.value.trim();
+                    currentPage = 0;
+                    loadUsers();
+                }
+            }
+
+            function openModal(isEdit = false) {
+                document.getElementById('modal').classList.remove('hidden');
+                document.getElementById('modal').classList.add('flex');
+                document.getElementById('modal-title').textContent = isEdit ? 'Edit User' : 'New User';
+                if (!isEdit) {
+                    document.getElementById('user-form').reset();
+                    document.getElementById('user_bubble_id').value = '';
+                }
+            }
+
+            function closeModal() {
+                document.getElementById('modal').classList.add('hidden');
+                document.getElementById('modal').classList.remove('flex');
+            }
+
+            function editUser(user) {
+                openModal(true);
+                document.getElementById('user_bubble_id').value = user.user_bubble_id;
+                document.getElementById('name').value = user.name || '';
+                document.getElementById('whatsapp_number').value = user.whatsapp_number || '';
+                document.getElementById('email').value = user.email || '';
+                document.getElementById('linked_agent_profile').value = user.linked_agent_profile || '';
+            }
+
+            async function handleFormSubmit(e) {
+                e.preventDefault();
+                const userBubbleId = document.getElementById('user_bubble_id').value;
+                const isEdit = !!userBubbleId;
+                
+                const payload = {
+                    name: document.getElementById('name').value,
+                    whatsapp_number: document.getElementById('whatsapp_number').value || null,
+                    email: document.getElementById('email').value || null,
+                    linked_agent_profile: document.getElementById('linked_agent_profile').value || null
+                };
+
+                // Clean empty strings
+                Object.keys(payload).forEach(k => {
+                    if (payload[k] === '') payload[k] = null;
+                });
+
+                try {
+                    const url = isEdit ? `${API_BASE}/users/${userBubbleId}` : `${API_BASE}/users`;
+                    const method = isEdit ? 'PUT' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to save');
+                    }
+
+                    closeModal();
+                    loadUsers();
+                } catch (err) {
+                    alert(err.message);
+                }
+            }
+
+            function logout() {
+                localStorage.removeItem('access_token');
+                window.location.href = '/';
+            }
+
+            // Load users on page load
+            loadUsers();
+        </script>
+    </body>
+    </html>
     """
 
 @app.get("/admin/migration", response_class=HTMLResponse)
