@@ -15,10 +15,12 @@ def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     search: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query("registration_date", description="Sort by: name, email, registration_date, whatsapp_number"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     current_user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List all users with their agent profiles, sorted by registration date"""
+    """List all users with their agent profiles, sorted by specified column"""
     # Check if user is admin
     if current_user.role != "admin":
         raise HTTPException(
@@ -26,14 +28,26 @@ def list_users(
             detail="Only admins can access user management"
         )
     
+    # Validate sort_order
+    if sort_order.lower() not in ["asc", "desc"]:
+        sort_order = "desc"
+    
     user_repo = UserRepository(db)
-    users, total = user_repo.get_all(skip=skip, limit=limit, search=search)
+    users, total = user_repo.get_all(
+        skip=skip, 
+        limit=limit, 
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
     
     return {
         "users": users,
         "total": total,
         "skip": skip,
-        "limit": limit
+        "limit": limit,
+        "sort_by": sort_by,
+        "sort_order": sort_order
     }
 
 

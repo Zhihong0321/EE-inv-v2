@@ -1515,6 +1515,31 @@ async def admin_users():
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
             body { font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+            .sort-indicator {
+                display: inline-block;
+                width: 0;
+                height: 0;
+                margin-left: 4px;
+                opacity: 0.3;
+            }
+            .sort-indicator.active {
+                opacity: 1;
+            }
+            .sort-indicator.asc::before {
+                content: '▲';
+                color: #3b82f6;
+                font-size: 10px;
+            }
+            .sort-indicator.desc::before {
+                content: '▼';
+                color: #3b82f6;
+                font-size: 10px;
+            }
+            .sort-indicator::before {
+                content: '⇅';
+                color: #9ca3af;
+                font-size: 10px;
+            }
         </style>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     </head>
@@ -1555,10 +1580,25 @@ async def admin_users():
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th onclick="sortBy('name')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Name</span>
+                                        <span id="sort-name" class="sort-indicator"></span>
+                                    </div>
+                                </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                                <th onclick="sortBy('email')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Email</span>
+                                        <span id="sort-email" class="sort-indicator"></span>
+                                    </div>
+                                </th>
+                                <th onclick="sortBy('registration_date')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Registration Date</span>
+                                        <span id="sort-registration_date" class="sort-indicator"></span>
+                                    </div>
+                                </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -1628,6 +1668,8 @@ async def admin_users():
             let pageSize = 50;
             let totalUsers = 0;
             let searchTerm = '';
+            let currentSortBy = 'registration_date';
+            let currentSortOrder = 'desc';
 
             if (!token) window.location.href = '/admin/login';
 
@@ -1643,6 +1685,35 @@ async def admin_users():
                 });
             }
 
+            function updateSortIndicators() {
+                // Reset all indicators
+                document.querySelectorAll('.sort-indicator').forEach(ind => {
+                    ind.classList.remove('active', 'asc', 'desc');
+                });
+                
+                // Set active indicator
+                const activeIndicator = document.getElementById(`sort-${currentSortBy}`);
+                if (activeIndicator) {
+                    activeIndicator.classList.add('active', currentSortOrder);
+                }
+            }
+
+            function sortBy(column) {
+                // If clicking the same column, toggle order
+                if (currentSortBy === column) {
+                    currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    // New column, default to ascending
+                    currentSortBy = column;
+                    currentSortOrder = 'asc';
+                }
+                
+                // Reset to first page when sorting changes
+                currentPage = 0;
+                updateSortIndicators();
+                loadUsers();
+            }
+
             async function loadUsers(direction = null) {
                 if (direction === 'next') {
                     currentPage++;
@@ -1656,7 +1727,9 @@ async def admin_users():
                 try {
                     const params = new URLSearchParams({
                         skip: (currentPage * pageSize).toString(),
-                        limit: pageSize.toString()
+                        limit: pageSize.toString(),
+                        sort_by: currentSortBy,
+                        sort_order: currentSortOrder
                     });
                     
                     if (searchTerm) {
@@ -1812,6 +1885,9 @@ async def admin_users():
                 window.location.href = '/';
             }
 
+            // Initialize sort indicators
+            updateSortIndicators();
+            
             // Load users on page load
             loadUsers();
         </script>

@@ -15,8 +15,10 @@ class UserRepository:
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None,
+        sort_by: Optional[str] = "registration_date",
+        sort_order: Optional[str] = "desc",
     ) -> Tuple[List[dict], int]:
-        """Get all users with their agent profiles, sorted by registration date"""
+        """Get all users with their agent profiles, sorted by specified column"""
         # Build the query
         query = """
             SELECT 
@@ -42,7 +44,22 @@ class UserRepository:
             """
             params['search'] = f"%{search}%"
         
-        query += " ORDER BY u.created_date DESC"
+        # Validate and set sort column
+        valid_sort_columns = {
+            "name": "a.name",
+            "email": "a.email",
+            "registration_date": "u.created_date",
+            "whatsapp_number": "a.contact"
+        }
+        
+        sort_column = valid_sort_columns.get(sort_by, "u.created_date")
+        sort_direction = "DESC" if sort_order.lower() == "desc" else "ASC"
+        
+        # Handle NULL values in sorting (put NULLs last)
+        if sort_column in ["a.name", "a.email", "a.contact"]:
+            query += f" ORDER BY {sort_column} {sort_direction} NULLS LAST"
+        else:
+            query += f" ORDER BY {sort_column} {sort_direction}"
         
         # Get total count
         count_query = query.replace(
