@@ -96,6 +96,7 @@ class InvoiceCreate(BaseModel):
     # Discount and voucher
     discount_percent: Optional[Decimal] = Field(None, ge=0, le=100)
     voucher_code: Optional[str] = None
+    apply_sst: Optional[bool] = False
 
     # Items
     items: List[InvoiceItemCreate] = Field(default_factory=list)
@@ -124,7 +125,7 @@ class InvoiceOnTheFlyRequest(BaseModel):
     discount_fixed: Optional[Decimal] = Field(Decimal(0), ge=0)
     discount_percent: Optional[Decimal] = Field(Decimal(0), ge=0, le=100)
     discount_given: Optional[str] = None  # String format: "500 10%" or "500" or "10%"
-    apply_sst: bool = True
+    apply_sst: bool = False
     template_id: Optional[str] = None
     voucher_code: Optional[str] = None
     agent_markup: Optional[Decimal] = Field(Decimal(0), ge=0)
@@ -205,3 +206,4 @@ class InvoiceFromURLRequest(BaseModel):
 
     # Other options
     template_id: Optional[str] = None
+    apply_sst: Optional[bool] = False

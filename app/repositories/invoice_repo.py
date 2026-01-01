@@ -60,6 +60,7 @@ class InvoiceRepository:
         package_name_snapshot: Optional[str] = None,
         created_by: Optional[str] = None,
         linked_old_invoice: Optional[str] = None,
+        apply_sst: Optional[bool] = None,
     ) -> InvoiceNew:
         """Create a new invoice"""
         bubble_id = f"inv_{secrets.token_hex(8)}"
@@ -99,20 +100,21 @@ class InvoiceRepository:
             voucher_code=voucher_code,
             internal_notes=internal_notes,
             customer_notes=customer_notes,
-            sst_rate=settings.DEFAULT_SST_RATE,
+            sst_rate=Decimal(0), # Default SST off
             created_by=created_by,
             linked_old_invoice=linked_old_invoice,
         )
 
-        # SST override logic
-        if template_id:
-            template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.bubble_id == template_id).first()
-            if template and not template.apply_sst:
-                invoice.sst_rate = Decimal(0)
-        else:
-            # If no template exists at all, default to 0 SST
+        # SST override logic (only if template explicitly requires it, or overridden by apply_sst)
+        if apply_sst is True:
+            invoice.sst_rate = Decimal(str(settings.DEFAULT_SST_RATE))
+        elif apply_sst is False:
             invoice.sst_rate = Decimal(0)
-
+        elif template_id:
+            template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.bubble_id == template_id).first()
+            if template and template.apply_sst:
+                invoice.sst_rate = Decimal(str(settings.DEFAULT_SST_RATE))
+        
         self.db.add(invoice)
         self.db.flush()  # Get the invoice ID
 
@@ -183,7 +185,7 @@ class InvoiceRepository:
         package_id: str,
         discount_fixed: Decimal = Decimal(0),
         discount_percent: Decimal = Decimal(0),
-        apply_sst: bool = True,
+        apply_sst: bool = False,
         template_id: Optional[str] = None,
         voucher_code: Optional[str] = None,
         agent_markup: Decimal = Decimal(0),

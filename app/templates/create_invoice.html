@@ -172,6 +172,18 @@
                     <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
                 </div>
 
+                <!-- SST Toggle -->
+                <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                    <input 
+                        type="checkbox" 
+                        name="apply_sst" 
+                        id="applySST" 
+                        class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                        {% if apply_sst %}checked{% endif %}
+                    >
+                    <label for="applySST" class="text-sm font-semibold text-gray-900">Apply 8% SST (Sales & Service Tax)</label>
+                </div>
+
                 <!-- Payment Methods Section -->
                 <div class="bg-purple-50 p-4 rounded-lg border-2 border-purple-300">
                     <div class="flex justify-between items-center mb-4">
@@ -697,12 +709,15 @@
             }
             
             // Calculate SST (8%)
-            const sstRate = 8.0;
+            const applySST = document.getElementById('applySST')?.checked || false;
+            const sstRate = applySST ? 8.0 : 0.0;
             const sstAmount = subtotal * (sstRate / 100);
             const totalAmount = subtotal + sstAmount;
             
             // Update totals
             document.getElementById('subtotal').textContent = `RM ${subtotal.toFixed(2)}`;
+            const sstLabel = document.querySelector('label[for="applySST"]');
+            if (sstLabel) sstLabel.textContent = `Apply 8% SST (Sales & Service Tax)${applySST ? ' - RM ' + sstAmount.toFixed(2) : ''}`;
             document.getElementById('sstAmount').textContent = `RM ${sstAmount.toFixed(2)}`;
             document.getElementById('totalAmount').textContent = `RM ${totalAmount.toFixed(2)}`;
         }
@@ -713,6 +728,12 @@
             addPaymentMethodRow();
             
             updateInvoicePreview();
+            
+            // Update preview when SST toggle changes
+            const sstToggle = document.getElementById('applySST');
+            if (sstToggle) {
+                sstToggle.addEventListener('change', updateInvoicePreview);
+            }
             
             // Update preview when discount input changes
             const discountInput = document.getElementById('discountGiven');
@@ -751,6 +772,7 @@
                 customer_phone: data.customer_phone || null,
                 customer_address: data.customer_address || null,
                 discount_given: data.discount_given || null,
+                apply_sst: document.getElementById('applySST')?.checked || false,
             };
             
             // Add EPP fee data if exists

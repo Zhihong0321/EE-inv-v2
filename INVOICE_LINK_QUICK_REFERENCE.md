@@ -39,6 +39,7 @@ https://quote.atap.solar/create-invoice
 | `customer_phone` | String | `60123456789` | No encoding needed |
 | `customer_address` | String | `123 Main St` | URL encode space as `%20`, comma as `%2C` |
 | `template_id` | String | `template_123` | Invoice template ID |
+| `apply_sst` | Boolean | `true` | Turn on 8% SST (Default: false) |
 
 ---
 

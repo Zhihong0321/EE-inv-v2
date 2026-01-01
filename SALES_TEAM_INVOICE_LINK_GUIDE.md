@@ -92,6 +92,7 @@ http://localhost:8080/create-invoice
 | `customer_phone` | String | ❌ No | Customer phone number | `60123456789` |
 | `customer_address` | String | ❌ No | Customer address | `123 Main St, City` |
 | `template_id` | String | ❌ No | Invoice template ID (bubble_id) | `template_123` |
+| `apply_sst` | Boolean | ❌ No | Turn on 8% SST | `true` (default: false) |
 
 ---
 

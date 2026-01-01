@@ -115,6 +115,7 @@ def create_invoice(
         agent_name_snapshot=agent_name,
         package_name_snapshot=package_name,
         created_by=current_user.id,
+        apply_sst=invoice_data.apply_sst,
     )
 
     return invoice

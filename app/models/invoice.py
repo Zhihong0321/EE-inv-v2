@@ -38,7 +38,7 @@ class InvoiceNew(Base):
     # Amounts
     subtotal = Column(Numeric(15, 2), nullable=False, default=0)
     agent_markup = Column(Numeric(15, 2), default=0)  # Hidden markup added to subtotal
-    sst_rate = Column(Numeric(5, 2), default=8)  # 8% SST by default
+    sst_rate = Column(Numeric(5, 2), default=0)  # Default SST off
     sst_amount = Column(Numeric(15, 2), nullable=False, default=0)
     discount_amount = Column(Numeric(15, 2), nullable=False, default=0)
     discount_fixed = Column(Numeric(15, 2), default=0)  # Fixed amount discount

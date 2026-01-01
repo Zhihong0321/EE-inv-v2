@@ -219,7 +219,8 @@ async def create_invoice_page(
     customer_name: Optional[str] = Query(None, description="Customer name (optional)"),
     customer_phone: Optional[str] = Query(None, description="Customer phone (optional)"),
     customer_address: Optional[str] = Query(None, description="Customer address (optional)"),
-    template_id: Optional[str] = Query(None, description="Template ID (optional)")
+    template_id: Optional[str] = Query(None, description="Template ID (optional)"),
+    apply_sst: Optional[bool] = Query(False, description="Apply SST (optional)")
 ):
     """
     Invoice creation page - ALWAYS shows the page, even with errors.
@@ -275,6 +276,8 @@ async def create_invoice_page(
                         customer_address = parsed['customer_address'][0]
                     if 'template_id' in parsed and parsed['template_id'] and not template_id:
                         template_id = parsed['template_id'][0]
+                    if 'apply_sst' in parsed and parsed['apply_sst'] and not apply_sst:
+                        apply_sst = parsed['apply_sst'][0].lower() == 'true'
                 except Exception as e:
                     warning_message = f"URL parsing warning: {str(e)}"
         
@@ -361,7 +364,8 @@ async def create_invoice_page(
                     "customer_name": customer_name,
                     "customer_phone": customer_phone,
                     "customer_address": customer_address,
-                    "template_id": template_id
+                    "template_id": template_id,
+                    "apply_sst": apply_sst
                 }
             )
         except FileNotFoundError as e:
