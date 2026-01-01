@@ -165,6 +165,14 @@ async def auth_hub_middleware(request: Request, call_next):
     referer = request.headers.get("referer", "")
     is_from_auth_hub = "auth.atap.solar" in referer
     
+    # Also check query parameters - Auth Hub might add tracking params
+    query_params = str(request.url.query).lower()
+    has_auth_params = any(param in query_params for param in ["return_to", "code", "token", "auth", "state"])
+    
+    # Check if URL contains auth.atap.solar (might be in return_to param)
+    url_str = str(request.url).lower()
+    url_has_auth_hub = "auth.atap.solar" in url_str
+    
     # If we have a cookie, verify it's valid before redirecting
     if auth_token:
         # Try to decode the token to verify it's valid
@@ -178,9 +186,10 @@ async def auth_hub_middleware(request: Request, call_next):
             # Token invalid, but don't redirect if coming from Auth Hub
             pass
     
-    # If coming from Auth Hub, allow through (cookie might be set but not readable yet)
-    # Frontend will handle authentication check
-    if is_from_auth_hub:
+    # If coming from Auth Hub (referer OR query params OR URL contains auth hub), allow through
+    # Cookie might be set but not immediately readable due to browser security/cookie domain
+    # Frontend will handle authentication check via API call with retry
+    if is_from_auth_hub or has_auth_params or url_has_auth_hub:
         return await call_next(request)
     
     # If HTML request and no valid cookie, redirect to Auth Hub
@@ -964,16 +973,43 @@ async def admin_dashboard():
             }
 
             async function loadDashboard() {
-                // Load user info
-                const user = await fetchData('/auth/me');
+                // Check if we just came from Auth Hub redirect
+                const urlParams = new URLSearchParams(window.location.search);
+                const fromAuthHub = urlParams.has('return_to') || urlParams.has('code') || 
+                                   window.location.href.includes('auth.atap.solar') ||
+                                   document.referrer.includes('auth.atap.solar');
+                
+                // Small delay to ensure cookie is available after redirect
+                if (fromAuthHub) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                // Load user info with retry if coming from Auth Hub
+                let user = await fetchData('/auth/me');
+                
+                // If no user and we came from Auth Hub, retry once after delay
+                if (!user && fromAuthHub) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    user = await fetchData('/auth/me');
+                    
+                    // Clean up URL params if we got user
+                    if (user) {
+                        window.history.replaceState({}, '', window.location.pathname);
+                    }
+                }
+                
                 if (user) {
                     const userName = user.name || user.whatsapp_number || 'User';
                     document.getElementById('user-info').textContent = userName;
                 } else {
-                    // If not authenticated, redirect to Auth Hub
-                    const returnTo = encodeURIComponent(window.location.href);
-                    window.location.href = `https://auth.atap.solar/?return_to=${returnTo}`;
-                    return;
+                    // Only redirect if we didn't just come from Auth Hub
+                    if (!fromAuthHub) {
+                        const returnTo = encodeURIComponent(window.location.href);
+                        window.location.href = `https://auth.atap.solar/?return_to=${returnTo}`;
+                        return;
+                    }
+                    // If we came from Auth Hub but still no user, show error
+                    document.getElementById('user-info').textContent = 'Authentication failed';
                 }
 
                 // Load stats
