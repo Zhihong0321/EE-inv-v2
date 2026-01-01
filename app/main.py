@@ -816,6 +816,17 @@ async def admin_dashboard():
                                 <i class="fas fa-chevron-right text-indigo-400"></i>
                             </a>
 
+                            <a href="/admin/packages" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-amber-300 hover:shadow-md transition-all">
+                                <div class="bg-amber-50 rounded-lg p-3 mr-4 group-hover:bg-amber-100 transition-colors">
+                                    <i class="fas fa-box text-amber-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 group-hover:text-amber-600">Package Management</p>
+                                    <p class="text-xs text-gray-500">Manage packages, products & brands</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-amber-600"></i>
+                            </a>
+
                             <a href="/admin/migration" class="action-card group flex items-center p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:shadow-md transition-all">
                                 <div class="bg-orange-50 rounded-lg p-3 mr-4 group-hover:bg-orange-100 transition-colors">
                                     <i class="fas fa-database text-orange-600"></i>
