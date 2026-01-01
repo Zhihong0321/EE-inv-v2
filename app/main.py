@@ -175,11 +175,15 @@ async def auth_hub_middleware(request: Request, call_next):
             # Token is valid, allow request through
             return await call_next(request)
         else:
-            # Token invalid - redirect to Auth Hub
+            # Token invalid (likely JWT_SECRET_KEY mismatch) - redirect to Auth Hub
             from app.middleware.auth import redirect_to_auth_hub
             return redirect_to_auth_hub(request)
-    except Exception:
-        # Token invalid or expired - redirect to Auth Hub
+    except Exception as e:
+        # Token invalid, expired, or JWT_SECRET_KEY mismatch - redirect to Auth Hub
+        # Log error for debugging (but don't expose to user)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Token verification failed: {str(e)}")
         from app.middleware.auth import redirect_to_auth_hub
         return redirect_to_auth_hub(request)
 
