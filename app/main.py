@@ -161,10 +161,17 @@ async def auth_hub_middleware(request: Request, call_next):
     # 1. Get Token from Cookie
     auth_token = request.cookies.get("auth_token")
     
+    # Debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    
     if not auth_token:
         # No token - redirect to Auth Hub with Return URL
+        logger.info(f"Auth middleware [{path}]: No auth_token cookie found")
         from app.middleware.auth import redirect_to_auth_hub
         return redirect_to_auth_hub(request)
+    
+    logger.debug(f"Auth middleware [{path}]: Found cookie, length={len(auth_token)}")
     
     try:
         # 2. Verify Token
@@ -173,17 +180,16 @@ async def auth_hub_middleware(request: Request, call_next):
         
         if payload:
             # Token is valid, allow request through
+            logger.debug(f"Auth middleware [{path}]: Token verified successfully")
             return await call_next(request)
         else:
-            # Token invalid (likely JWT_SECRET_KEY mismatch) - redirect to Auth Hub
+            # Token invalid - redirect to Auth Hub
+            logger.warning(f"Auth middleware [{path}]: Token decode returned None - redirecting")
             from app.middleware.auth import redirect_to_auth_hub
             return redirect_to_auth_hub(request)
     except Exception as e:
         # Token invalid, expired, or JWT_SECRET_KEY mismatch - redirect to Auth Hub
-        # Log error for debugging (but don't expose to user)
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Token verification failed: {str(e)}")
+        logger.error(f"Auth middleware [{path}]: Token verification exception: {str(e)}")
         from app.middleware.auth import redirect_to_auth_hub
         return redirect_to_auth_hub(request)
 
