@@ -54,6 +54,9 @@ def get_current_user(
     db: Session = Depends(get_db)
 ) -> AuthUser:
     """Get current authenticated user from Auth Hub cookie or Authorization header"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -64,20 +67,35 @@ def get_current_user(
     token = get_auth_token_from_request(request)
     
     if not token:
+        logger.error(f"🔐 get_current_user: No token found in request")
         raise credentials_exception
 
+    logger.error(f"🔐 get_current_user: Token found, length={len(token)}")
+    
     payload = decode_access_token(token)
     if payload is None:
+        logger.error(f"🔐 get_current_user: Token decode returned None - check JWT_SECRET_KEY")
         raise credentials_exception
 
+    logger.error(f"🔐 get_current_user: Token decoded successfully, payload keys: {list(payload.keys())}")
+    
     user_id = get_user_id_from_payload(payload)
     if user_id is None:
+        logger.error(f"🔐 get_current_user: No userId/sub in payload: {payload}")
         raise credentials_exception
 
+    logger.error(f"🔐 get_current_user: Looking for user_id={user_id} (type: {type(user_id).__name__})")
+    
     user = db.query(AuthUser).filter(AuthUser.user_id == user_id).first()
-    if user is None or not user.active:
+    if user is None:
+        logger.error(f"🔐 get_current_user: User not found in database for user_id={user_id}")
+        raise credentials_exception
+    
+    if not user.active:
+        logger.error(f"🔐 get_current_user: User {user_id} is inactive")
         raise credentials_exception
 
+    logger.error(f"🔐 get_current_user: ✅ User authenticated: {user.user_id}")
     return user
 
 
