@@ -110,11 +110,8 @@ class InvoiceRepository:
             if template and not template.apply_sst:
                 invoice.sst_rate = Decimal(0)
         else:
-            default_template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.is_default == True).first()
-            if default_template and not default_template.apply_sst:
-                invoice.sst_rate = Decimal(0)
-            elif not default_template:
-                invoice.sst_rate = Decimal(0)
+            # If no template exists at all, default to 0 SST
+            invoice.sst_rate = Decimal(0)
 
         self.db.add(invoice)
         self.db.flush()  # Get the invoice ID
