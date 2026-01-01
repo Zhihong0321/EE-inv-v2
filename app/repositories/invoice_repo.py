@@ -106,12 +106,10 @@ class InvoiceRepository:
 
         # SST override logic
         if template_id:
-            from app.models.template import InvoiceTemplate
             template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.bubble_id == template_id).first()
             if template and not template.apply_sst:
                 invoice.sst_rate = Decimal(0)
         else:
-            from app.models.template import InvoiceTemplate
             default_template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.is_default == True).first()
             if default_template and not default_template.apply_sst:
                 invoice.sst_rate = Decimal(0)
@@ -397,7 +395,6 @@ class InvoiceRepository:
             elif isinstance(v, datetime):
                 new_values[k] = v.isoformat()
         
-        import json
         self._create_audit_log("invoice_new", bubble_id, "create_on_the_fly", created_by, None, json.dumps(new_values))
 
         return invoice
