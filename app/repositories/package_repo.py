@@ -329,3 +329,81 @@ class PackageRepository:
         """Get brand by bubble_id"""
         return self.db.query(Brand).filter(Brand.bubble_id == bubble_id).first()
 
+    def get_export_data(self) -> List[dict]:
+        """Get all packages with a summary of their items for export"""
+        packages = self.db.query(Package).order_by(Package.name).all()
+        export_data = []
+
+        for pkg in packages:
+            items_summary = ""
+            if pkg.linked_package_item:
+                items_query = text("""
+                    SELECT 
+                        pi.qty,
+                        p.name as product_name,
+                        b.name as brand_name
+                    FROM package_item pi
+                    LEFT JOIN product p ON p.bubble_id = pi.product
+                    LEFT JOIN brand b ON b.bubble_id = p.linked_brand
+                    WHERE pi.bubble_id = ANY(:item_ids)
+                    ORDER BY pi.sort NULLS LAST, pi.created_date
+                """)
+                items = self.db.execute(items_query, {"item_ids": pkg.linked_package_item}).fetchall()
+                items_summary = ", ".join([f"{item.brand_name or ''} {item.product_name} x{item.qty}" for item in items])
+
+            export_data.append({
+                "package_id": pkg.bubble_id,
+                "name": pkg.name,
+                "price": float(pkg.price) if pkg.price else 0.0,
+                "invoice_description": pkg.invoice_desc or "",
+                "internal_description": pkg.description or "",
+                "items_summary": items_summary
+            })
+        
+        return export_data
+
+    def bulk_update_from_import(self, import_data: List[dict]) -> dict:
+        """Update multiple packages from import data with verification"""
+        results = {
+            "updated": 0,
+            "failed": 0,
+            "errors": [],
+            "warnings": []
+        }
+
+        for row in import_data:
+            try:
+                bubble_id = row.get("package_id")
+                if not bubble_id:
+                    continue # Skip empty rows
+
+                pkg = self.get_package(bubble_id)
+                if not pkg:
+                    raise ValueError(f"Package ID '{bubble_id}' not found in database")
+
+                # Verification: Check if name matches (safety check for row shifts)
+                import_name = row.get("name")
+                if import_name and pkg.name != import_name:
+                    results["warnings"].append(f"Name mismatch for {bubble_id}: DB has '{pkg.name}', import has '{import_name}'. Updated anyway.")
+
+                # Update allowed fields
+                if "price" in row:
+                    pkg.price = row["price"] # Already Decimal from API validation
+                
+                if "invoice_description" in row:
+                    pkg.invoice_desc = row["invoice_description"]
+
+                if "internal_description" in row:
+                    pkg.description = row["internal_description"]
+                
+                pkg.modified_date = datetime.now(timezone.utc)
+                results["updated"] += 1
+            except Exception as e:
+                results["failed"] += 1
+                results["errors"].append(f"Row {row.get('package_id', 'unknown')}: {str(e)}")
+
+        if results["updated"] > 0:
+            self.db.commit()
+        
+        return results
+

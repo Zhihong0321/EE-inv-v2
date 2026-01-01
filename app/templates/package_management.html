@@ -48,9 +48,18 @@
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-bold text-gray-900">Packages</h2>
-                    <button onclick="showCreatePackageModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
-                        + New Package
-                    </button>
+                    <div class="flex space-x-2">
+                        <button onclick="exportPackages()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                            Export TSV
+                        </button>
+                        <button onclick="document.getElementById('import-input').click()" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                            Import TSV
+                        </button>
+                        <input type="file" id="import-input" class="hidden" accept=".tsv,.csv" onchange="importPackages(event)">
+                        <button onclick="showCreatePackageModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                            + New Package
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Filters -->
@@ -567,6 +576,46 @@
                 loadPackages(currentPackagePage);
                 alert('Package deleted successfully!');
             }
+        }
+
+        // Export/Import
+        function exportPackages() {
+            window.location.href = `${API_BASE}/export`;
+        }
+
+        async function importPackages(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE}/import`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert(result.message);
+                    loadPackages(currentPackagePage);
+                } else {
+                    let errorMsg = result.message || 'Import failed';
+                    if (result.errors) {
+                        errorMsg += ':\n' + result.errors.slice(0, 5).join('\n');
+                        if (result.errors.length > 5) errorMsg += '\n...and more';
+                    }
+                    alert(errorMsg);
+                }
+            } catch (error) {
+                console.error('Import error:', error);
+                alert('Error during import: ' + error.message);
+            }
+            
+            // Clear input so same file can be selected again
+            event.target.value = '';
         }
 
         // Pagination helper

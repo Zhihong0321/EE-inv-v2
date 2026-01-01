@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Text, ARRAY
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, Text, ARRAY, JSON
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -28,4 +28,4 @@ class Package(Base):
     special = Column(Boolean)
     password = Column(String)
     description = Column(Text)  # Package description
-    items = Column(ARRAY(String))  # JSON array (stored as text array in DB)
+    items = Column(JSON)  # JSON array (verified as json in DB)

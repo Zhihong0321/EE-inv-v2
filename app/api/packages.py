@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
+import csv
+import io
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
@@ -16,11 +19,100 @@ from app.schemas.package import (
     ProductResponse,
     ProductListResponse,
     BrandResponse,
-    BrandListResponse
+    BrandListResponse,
+    PackageImport
 )
 from decimal import Decimal
 
 router = APIRouter(prefix="/api/v1/packages", tags=["Package Management"])
+
+
+@router.get("/export", response_class=StreamingResponse)
+def export_packages(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Export packages to TSV for editing in Google Sheets"""
+    repo = PackageRepository(db)
+    export_data = repo.get_export_data()
+    
+    output = io.StringIO()
+    # Updated fieldnames to include internal_description
+    fieldnames = ["package_id", "name", "price", "invoice_description", "internal_description", "items_summary"]
+    writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter='\t')
+    writer.writeheader()
+    writer.writerows(export_data)
+    
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/tab-separated-values",
+        headers={"Content-Disposition": "attachment; filename=packages_export.tsv"}
+    )
+
+
+@router.post("/import")
+async def import_packages(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Import packages from TSV/CSV after editing in Google Sheets"""
+    content = await file.read()
+    # Use 'utf-8-sig' to handle Excel's BOM if present
+    text_content = content.decode('utf-8-sig')
+    
+    # Try to detect delimiter (TSV or CSV)
+    delimiter = '\t' if '\t' in text_content.split('\n')[0] else ','
+    
+    f = io.StringIO(text_content)
+    reader = csv.DictReader(f, delimiter=delimiter)
+    
+    import_data = []
+    errors = []
+    
+    def sanitize_price(val: str) -> str:
+        if not val: return "0"
+        # Remove currency symbols and thousands separators
+        return val.replace('RM', '').replace('$', '').replace(',', '').strip()
+
+    for i, row in enumerate(reader):
+        try:
+            # Skip completely empty rows
+            if not any(row.values()):
+                continue
+
+            # Schema Verification using Pydantic
+            validated_row = PackageImport(
+                package_id=row.get("package_id", "").strip(),
+                name=row.get("name", "").strip(),
+                price=Decimal(sanitize_price(row.get("price", "0"))),
+                invoice_description=row.get("invoice_description", ""),
+                internal_description=row.get("internal_description", ""),
+                items_summary=row.get("items_summary", "")
+            )
+            import_data.append(validated_row.model_dump())
+        except Exception as e:
+            errors.append(f"Row {i+1} (ID: {row.get('package_id', 'unknown')}): {str(e)}")
+    
+    if errors:
+        return {
+            "status": "error",
+            "message": "Schema verification failed",
+            "errors": errors[:10] # Return first 10 errors
+        }
+    
+    if not import_data:
+        return {"status": "error", "message": "No valid data found in file"}
+
+    repo = PackageRepository(db)
+    result = repo.bulk_update_from_import(import_data)
+    
+    return {
+        "status": "success",
+        "message": f"Updated {result['updated']} packages",
+        "details": result
+    }
 
 
 @router.get("", response_model=PackageListResponse)

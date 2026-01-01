@@ -64,6 +64,15 @@ class PackageUpdate(BaseModel):
     linked_package_items: Optional[List[str]] = None
 
 
+class PackageImport(BaseModel):
+    package_id: str = Field(..., description="The unique bubble_id of the package")
+    name: str = Field(..., description="Package name (for reference)")
+    price: Decimal = Field(..., ge=0, description="Updated package price")
+    invoice_description: Optional[str] = Field(None, description="Updated invoice description")
+    internal_description: Optional[str] = Field(None, description="Internal package description")
+    items_summary: Optional[str] = Field(None, description="Read-only summary of items")
+
+
 class PackageResponse(BaseModel):
     id: int
     bubble_id: str
