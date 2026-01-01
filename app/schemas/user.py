@@ -33,3 +33,4 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     linked_agent_profile: Optional[str] = None
 
+

@@ -139,3 +139,10 @@ COMMENT ON COLUMN invoice_new_item.item_type IS 'Item type: package, discount, v
 **Executed By:** Automated Script  
 **Verified:** ✅ Production database schema updated successfully
 
+
+
+
+
+
+
+

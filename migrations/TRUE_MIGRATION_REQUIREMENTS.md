@@ -201,3 +201,10 @@ The invoice page UI redesign is **purely frontend**:
 - `migrations/verify_item_type_column.sql` - Verification script
 - `migrations/TRUE_MIGRATION_REQUIREMENTS.md` - This summary
 
+
+
+
+
+
+
+

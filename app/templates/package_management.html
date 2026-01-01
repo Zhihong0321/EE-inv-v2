@@ -267,39 +267,24 @@
         let allProducts = [];
         let allBrands = [];
 
-        // Get auth token from localStorage or cookie
-        function getAuthToken() {
-            const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-            if (token) return token;
-            // Try to get from cookie
-            const cookies = document.cookie.split(';');
-            for (let cookie of cookies) {
-                const [name, value] = cookie.trim().split('=');
-                if (name === 'auth_token' || name === 'token') return value;
-            }
-            return null;
-        }
-
-        // API call helper
+        // API call helper - uses cookies automatically
         async function apiCall(endpoint, options = {}) {
-            const token = getAuthToken();
             const headers = {
                 'Content-Type': 'application/json',
                 ...options.headers
             };
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
             
             try {
                 const response = await fetch(`${API_BASE}${endpoint}`, {
                     ...options,
-                    headers
+                    headers,
+                    credentials: 'include'
                 });
                 
                 if (response.status === 401) {
-                    alert('Please login to access package management');
-                    window.location.href = '/admin/login';
+                    // Redirect to Auth Hub
+                    const returnTo = encodeURIComponent(window.location.href);
+                    window.location.href = `https://auth.atap.solar/?return_to=${returnTo}`;
                     return null;
                 }
                 

@@ -63,3 +63,10 @@ WHERE item_type IS NULL;
 --   → Run UPDATE statement to set default values:
 --   UPDATE invoice_new_item SET item_type = 'package' WHERE item_type IS NULL;
 
+
+
+
+
+
+
+

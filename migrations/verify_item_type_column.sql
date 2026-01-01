@@ -48,3 +48,10 @@ FROM invoice_new_item
 GROUP BY item_type
 ORDER BY count DESC;
 
+
+
+
+
+
+
+

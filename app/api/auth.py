@@ -115,13 +115,11 @@ def get_current_user_info(
 
 @router.post("/logout")
 def logout(
-    current_user: AuthUser = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    request: Request
 ):
-    """Logout user (invalidate session - client-side only)"""
-    # In a real implementation, you might want to invalidate the JWT
-    # by blacklisting it in a session store
-    return {"message": "Logged out successfully"}
+    """Logout user - redirect to Auth Hub logout"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="https://auth.atap.solar/auth/logout", status_code=302)
 
 
 @router.post("/api-key/generate", response_model=APIKeyCreateResponse)

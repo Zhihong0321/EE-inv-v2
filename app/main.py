@@ -128,6 +128,45 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": str(exc), "type": type(exc).__name__, "status": "error"}
     )
 
+# Auth Hub middleware - Redirect HTML requests without auth cookie
+@app.middleware("http")
+async def auth_hub_middleware(request: Request, call_next):
+    """Redirect HTML requests to Auth Hub if no auth_token cookie"""
+    # Public routes that don't require authentication
+    public_routes = [
+        "/",
+        "/create-invoice",
+        "/test-create-invoice",
+        "/test-create-invoice-simple",
+        "/demo/random-package-link",
+        "/admin/login",
+    ]
+    
+    # Skip API endpoints, static files, and public routes
+    path = request.url.path
+    if (path.startswith("/api/") or 
+        path.startswith("/static/") or 
+        path.startswith("/view/") or  # Public invoice share links
+        path in public_routes):
+        return await call_next(request)
+    
+    # Check if this is an HTML request (admin pages or HTML accept header)
+    accept_header = request.headers.get("accept", "")
+    is_html_request = "text/html" in accept_header or path.startswith("/admin/")
+    
+    if not is_html_request:
+        return await call_next(request)
+    
+    # Check for auth_token cookie
+    auth_token = request.cookies.get("auth_token")
+    
+    # If HTML request and no cookie, redirect to Auth Hub
+    if not auth_token:
+        from app.middleware.auth import redirect_to_auth_hub
+        return redirect_to_auth_hub(request)
+    
+    return await call_next(request)
+
 # Request logging middleware - LOG EVERY REQUEST
 @app.middleware("http")
 async def log_all_requests(request: Request, call_next):
@@ -882,12 +921,11 @@ async def admin_dashboard():
 
         <script>
             const API_BASE = '/api/v1';
-            let token = localStorage.getItem('access_token');
 
             async function fetchData(endpoint) {
                 try {
                     const response = await fetch(API_BASE + endpoint, {
-                        headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                        credentials: 'include'
                     });
                     if (response.ok) return await response.json();
                     return null;
@@ -903,19 +941,15 @@ async def admin_dashboard():
             }
 
             async function loadDashboard() {
-                // Check auth
-                if (!token) {
-                    window.location.href = '/admin/login';
-                    return;
-                }
-
                 // Load user info
                 const user = await fetchData('/auth/me');
                 if (user) {
                     const userName = user.name || user.whatsapp_number || 'User';
                     document.getElementById('user-info').textContent = userName;
                 } else {
-                    logout();
+                    // If not authenticated, redirect to Auth Hub
+                    const returnTo = encodeURIComponent(window.location.href);
+                    window.location.href = `https://auth.atap.solar/?return_to=${returnTo}`;
                     return;
                 }
 
@@ -972,8 +1006,7 @@ async def admin_dashboard():
             }
 
             function logout() {
-                localStorage.removeItem('access_token');
-                window.location.href = '/';
+                window.location.href = 'https://auth.atap.solar/auth/logout';
             }
 
             // Load dashboard on page load
@@ -1094,8 +1127,7 @@ async def admin_login():
                     }
 
                     if (response.ok && data.success) {
-                        localStorage.setItem('access_token', data.token);
-                        localStorage.setItem('user', JSON.stringify(data.user));
+                        // Auth Hub will handle token via cookie
                         window.location.href = '/admin/';
                     } else {
                         showError(data.message || data.detail || 'Invalid OTP');
@@ -1149,8 +1181,7 @@ async def admin_login():
                         }
 
                         if (response.ok && data.success) {
-                            localStorage.setItem('access_token', data.token);
-                            localStorage.setItem('user', JSON.stringify(data.user));
+                            // Auth Hub will handle token via cookie
                             window.location.href = decodeURIComponent(returnUrl);
                         } else {
                             showError(data.message || data.detail || 'Invalid OTP');
@@ -1315,9 +1346,6 @@ async def admin_templates():
 
         <script>
             const API_BASE = '/api/v1';
-            let token = localStorage.getItem('access_token');
-
-            if (!token) window.location.href = '/admin/login';
 
             // Fields to map for form
             const fields = [
@@ -1329,7 +1357,7 @@ async def admin_templates():
             async function fetchTemplates() {
                 try {
                     const response = await fetch(`${API_BASE}/templates?limit=100`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        credentials: 'include'
                     });
                     
                     if (!response.ok) throw new Error('Failed to fetch templates');
@@ -1446,9 +1474,9 @@ async def admin_templates():
                     const response = await fetch(url, {
                         method: method,
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
+                            'Content-Type': 'application/json'
                         },
+                        credentials: 'include',
                         body: JSON.stringify(payload)
                     });
 
@@ -1470,7 +1498,7 @@ async def admin_templates():
                 try {
                     const response = await fetch(`${API_BASE}/templates/${id}`, {
                         method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        credentials: 'include'
                     });
                     
                     if (!response.ok) throw new Error('Failed to delete');
@@ -1484,7 +1512,7 @@ async def admin_templates():
                 try {
                     const response = await fetch(`${API_BASE}/templates/${id}/set-default`, {
                         method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        credentials: 'include'
                     });
                     
                     if (!response.ok) throw new Error('Failed to set default');
@@ -1495,8 +1523,7 @@ async def admin_templates():
             }
 
             function logout() {
-                localStorage.removeItem('access_token');
-                window.location.href = '/';
+                window.location.href = 'https://auth.atap.solar/auth/logout';
             }
 
             fetchTemplates();
@@ -1697,15 +1724,12 @@ async def admin_users():
 
         <script>
             const API_BASE = '/api/v1';
-            let token = localStorage.getItem('access_token');
             let currentPage = 0;
             let pageSize = 50;
             let totalUsers = 0;
             let searchTerm = '';
             let currentSortBy = 'registration_date';
             let currentSortOrder = 'desc';
-
-            if (!token) window.location.href = '/admin/login';
 
             function formatDate(dateString) {
                 if (!dateString) return 'N/A';
@@ -1771,7 +1795,7 @@ async def admin_users():
                     }
 
                     const response = await fetch(`${API_BASE}/users?${params}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        credentials: 'include'
                     });
                     
                     if (!response.ok) {
@@ -1896,9 +1920,9 @@ async def admin_users():
                     const response = await fetch(url, {
                         method: method,
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
+                            'Content-Type': 'application/json'
                         },
+                        credentials: 'include',
                         body: JSON.stringify(payload)
                     });
 
@@ -1915,8 +1939,7 @@ async def admin_users():
             }
 
             function logout() {
-                localStorage.removeItem('access_token');
-                window.location.href = '/';
+                window.location.href = 'https://auth.atap.solar/auth/logout';
             }
 
             // Initialize sort indicators
@@ -2117,8 +2140,7 @@ async def admin_guides():
 
         <script>
             function logout() {{
-                localStorage.removeItem('access_token');
-                window.location.href = '/';
+                window.location.href = 'https://auth.atap.solar/auth/logout';
             }}
 
             // Smooth scroll for anchor links

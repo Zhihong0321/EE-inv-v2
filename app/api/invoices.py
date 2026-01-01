@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Optional
@@ -17,6 +18,8 @@ from app.repositories.customer_repo import CustomerRepository
 from app.middleware.auth import get_current_user, get_api_key_user, get_optional_user, get_request_ip
 from app.models.auth import AuthUser
 from app.config import settings
+from app.utils.html_generator import generate_invoice_html
+from app.utils.pdf_generator import generate_invoice_pdf, sanitize_filename
 
 router = APIRouter(prefix="/api/v1/invoices", tags=["Invoices"])
 
@@ -241,6 +244,78 @@ def get_invoice(
         )
 
     return invoice
+
+
+@router.get("/{bubble_id}/pdf")
+def download_invoice_pdf(
+    bubble_id: str,
+    request: Request,
+    current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Download invoice as PDF (authenticated endpoint).
+    
+    Returns PDF file with filename: {company_name}_{invoice_number}.pdf
+    """
+    invoice_repo = InvoiceRepository(db)
+    invoice = invoice_repo.get_by_id(bubble_id)
+
+    if not invoice:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found"
+        )
+
+    # Fetch template data
+    template_data = {}
+    if invoice.template_id:
+        template = invoice_repo.get_template(invoice.template_id)
+        if template:
+            template_data = template
+    
+    # Convert invoice to dict for html_generator
+    invoice_dict = invoice.to_dict()
+    # Add items to invoice_dict
+    invoice_dict["items"] = [
+        {
+            "description": item.description,
+            "qty": float(item.qty),
+            "unit_price": float(item.unit_price),
+            "total_price": float(item.total_price)
+        } for item in invoice.items
+    ]
+    
+    # Generate HTML (without PDF download button for cleaner PDF)
+    html_content = generate_invoice_html(invoice_dict, template_data, share_token=None, invoice_id=None)
+    
+    # Generate PDF
+    try:
+        # Get base URL for resolving relative URLs (fonts, images)
+        base_url = str(request.base_url).rstrip("/")
+        pdf_bytes = generate_invoice_pdf(html_content, page_size='A4', base_url=base_url)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate PDF: {str(e)}"
+        )
+    
+    # Generate filename
+    company_name = template_data.get('company_name', 'Invoice')
+    invoice_number = invoice.invoice_number
+    filename = sanitize_filename(company_name, invoice_number)
+    
+    # Return PDF as response
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
 
 @router.get("/number/{invoice_number}", response_model=InvoiceResponse)

@@ -7,10 +7,13 @@ class Settings(BaseSettings):
     DATABASE_URL: Optional[str] = None
     DATABASE_PRIVATE_URL: Optional[str] = None
 
-    # JWT
-    JWT_SECRET_KEY: str
+    # JWT - Shared with Auth Hub
+    JWT_SECRET_KEY: str  # Must match Auth Hub's JWT_SECRET
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 43200  # 30 days
+    
+    # Auth Hub
+    AUTH_HUB_URL: str = "https://auth.atap.solar"
 
     # WhatsApp API
     WHATSAPP_API_URL: str = "https://whatsapp-api-server-production-c15f.up.railway.app/api"

@@ -279,3 +279,10 @@ AND column_name = 'item_type';
 **Next Step:** Run verification query on production database  
 **Critical:** Do NOT run migration until verification confirms column is missing
 
+
+
+
+
+
+
+

@@ -1,8 +1,50 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
-def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> str:
+
+def _generate_pdf_download_button(share_token: Optional[str] = None, invoice_id: Optional[str] = None) -> str:
+    """
+    Generate PDF download button HTML.
+    
+    Args:
+        share_token: Share token for public invoice view
+        invoice_id: Invoice bubble_id for authenticated view
+    
+    Returns:
+        HTML string for download button or empty string if neither token nor ID provided
+    """
+    if share_token:
+        pdf_url = f"/view/{share_token}/pdf"
+    elif invoice_id:
+        pdf_url = f"/api/v1/invoices/{invoice_id}/pdf"
+    else:
+        return ""
+    
+    return f'''
+            <div class="mt-6">
+                <a href="{pdf_url}" class="pdf-download-btn" download>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download PDF
+                </a>
+            </div>
+        '''
+
+
+def generate_invoice_html(
+    invoice: Dict[str, Any], 
+    template: Dict[str, Any],
+    share_token: str = None,
+    invoice_id: str = None
+) -> str:
     """
     Generates a professional, minimalist, mobile-optimized HTML invoice.
+    
+    Args:
+        invoice: Invoice data dictionary
+        template: Template data dictionary
+        share_token: Share token for public invoice view (for PDF download link)
+        invoice_id: Invoice bubble_id for authenticated view (for PDF download link)
     """
     
     # Format currency
@@ -125,11 +167,35 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
                 line-height: 1.2 !important;
                 color: #9ca3af !important;
             }}
+            /* PDF Download Button Styles */
+            .pdf-download-btn {{
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 12px 24px;
+                background-color: #1f2937;
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 600;
+                text-decoration: none;
+                border-radius: 6px;
+                transition: background-color 0.2s;
+                margin-top: 16px;
+            }}
+            .pdf-download-btn:hover {{
+                background-color: #374151;
+            }}
+            .pdf-download-btn:active {{
+                background-color: #111827;
+            }}
             @media print {{
                 body {{ background: white; }}
                 .invoice-container {{
                     max-width: 100% !important;
                     padding: 0 !important;
+                }}
+                .pdf-download-btn {{
+                    display: none !important;
                 }}
             }}
         </style>
@@ -238,6 +304,7 @@ def generate_invoice_html(invoice: Dict[str, Any], template: Dict[str, Any]) -> 
             <!-- Document Footer -->
             <footer class="mt-12 pt-6 border-t border-gray-100 text-center">
                 <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Official Digital Document</p>
+                {_generate_pdf_download_button(share_token, invoice_id)}
             </footer>
         </div>
     </body>
