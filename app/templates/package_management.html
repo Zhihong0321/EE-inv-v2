@@ -274,6 +274,12 @@
                 ...options.headers
             };
             
+            // Check if we just came from Auth Hub - don't redirect if so
+            const urlParams = new URLSearchParams(window.location.search);
+            const fromAuthHub = urlParams.has('return_to') || urlParams.has('code') || 
+                               window.location.href.includes('auth.atap.solar') ||
+                               document.referrer.includes('auth.atap.solar');
+            
             try {
                 const response = await fetch(`${API_BASE}${endpoint}`, {
                     ...options,
@@ -282,9 +288,14 @@
                 });
                 
                 if (response.status === 401) {
-                    // Redirect to Auth Hub
-                    const returnTo = encodeURIComponent(window.location.href);
-                    window.location.href = `https://auth.atap.solar/?return_to=${returnTo}`;
+                    // Only redirect if we didn't just come from Auth Hub
+                    if (!fromAuthHub) {
+                        const returnTo = encodeURIComponent(window.location.href);
+                        window.location.href = `https://auth.atap.solar/?return_to=${returnTo}`;
+                    } else {
+                        console.error('Authentication failed after Auth Hub redirect');
+                        alert('Authentication failed. Please refresh the page or try logging in again.');
+                    }
                     return null;
                 }
                 

@@ -160,22 +160,32 @@ async def auth_hub_middleware(request: Request, call_next):
     # Check for auth_token cookie
     auth_token = request.cookies.get("auth_token")
     
-    # IMPORTANT: Check if we're coming from Auth Hub redirect
-    # This prevents infinite redirect loops when Auth Hub redirects back
-    referer = request.headers.get("referer", "")
-    is_from_auth_hub = "auth.atap.solar" in referer
+    # CRITICAL: Check if we're coming from Auth Hub redirect - MULTIPLE CHECKS
+    referer = request.headers.get("referer", "").lower()
+    is_from_auth_hub_referer = "auth.atap.solar" in referer
     
-    # Also check query parameters - Auth Hub might add tracking params
-    query_params = str(request.url.query).lower()
-    has_auth_params = any(param in query_params for param in ["return_to", "code", "token", "auth", "state"])
+    # Check query parameters
+    query_str = str(request.url.query).lower()
+    has_auth_query_params = any(param in query_str for param in ["return_to", "code", "token", "auth", "state"])
     
-    # Check if URL contains auth.atap.solar (might be in return_to param)
+    # Check URL itself
     url_str = str(request.url).lower()
     url_has_auth_hub = "auth.atap.solar" in url_str
     
-    # If we have a cookie, verify it's valid before redirecting
+    # Check for session flag (if we set one)
+    session_flag = request.cookies.get("_auth_redirect_flag")
+    
+    # If ANY indicator shows we came from Auth Hub, ALWAYS allow through
+    # Frontend will handle auth check - don't redirect again!
+    if is_from_auth_hub_referer or has_auth_query_params or url_has_auth_hub or session_flag:
+        # Clear the flag cookie if it exists
+        response = await call_next(request)
+        if session_flag:
+            response.delete_cookie("_auth_redirect_flag", path="/")
+        return response
+    
+    # If we have a cookie, verify it's valid
     if auth_token:
-        # Try to decode the token to verify it's valid
         try:
             from app.utils.security import decode_access_token
             payload = decode_access_token(auth_token)
@@ -183,21 +193,16 @@ async def auth_hub_middleware(request: Request, call_next):
                 # Token is valid, allow request through
                 return await call_next(request)
         except Exception:
-            # Token invalid, but don't redirect if coming from Auth Hub
+            # Token invalid - will redirect below
             pass
     
-    # If coming from Auth Hub (referer OR query params OR URL contains auth hub), allow through
-    # Cookie might be set but not immediately readable due to browser security/cookie domain
-    # Frontend will handle authentication check via API call with retry
-    if is_from_auth_hub or has_auth_params or url_has_auth_hub:
-        return await call_next(request)
-    
-    # If HTML request and no valid cookie, redirect to Auth Hub
-    if not auth_token:
-        from app.middleware.auth import redirect_to_auth_hub
-        return redirect_to_auth_hub(request)
-    
-    return await call_next(request)
+    # No cookie and not from Auth Hub - redirect to Auth Hub
+    # Set a flag cookie so we know we redirected
+    from app.middleware.auth import redirect_to_auth_hub
+    response = redirect_to_auth_hub(request)
+    # Set a temporary flag cookie (expires in 60 seconds)
+    response.set_cookie("_auth_redirect_flag", "1", max_age=60, path="/", httponly=True)
+    return response
 
 # Request logging middleware - LOG EVERY REQUEST
 @app.middleware("http")
@@ -981,16 +986,19 @@ async def admin_dashboard():
                 
                 // Small delay to ensure cookie is available after redirect
                 if (fromAuthHub) {
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
                 // Load user info with retry if coming from Auth Hub
                 let user = await fetchData('/auth/me');
                 
-                // If no user and we came from Auth Hub, retry once after delay
+                // If no user and we came from Auth Hub, retry multiple times
                 if (!user && fromAuthHub) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    user = await fetchData('/auth/me');
+                    for (let i = 0; i < 3; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        user = await fetchData('/auth/me');
+                        if (user) break;
+                    }
                     
                     // Clean up URL params if we got user
                     if (user) {
@@ -1002,14 +1010,18 @@ async def admin_dashboard():
                     const userName = user.name || user.whatsapp_number || 'User';
                     document.getElementById('user-info').textContent = userName;
                 } else {
-                    // Only redirect if we didn't just come from Auth Hub
+                    // NEVER redirect from frontend if we came from Auth Hub - prevents loop
+                    // Backend middleware will handle redirect if needed
                     if (!fromAuthHub) {
+                        // Only redirect if we're sure we didn't come from Auth Hub
                         const returnTo = encodeURIComponent(window.location.href);
                         window.location.href = `https://auth.atap.solar/?return_to=${returnTo}`;
                         return;
+                    } else {
+                        // We came from Auth Hub but no user - show error, don't redirect
+                        document.getElementById('user-info').textContent = 'Authentication failed - Please try logging in again';
+                        console.error('Auth failed after redirect from Auth Hub');
                     }
-                    // If we came from Auth Hub but still no user, show error
-                    document.getElementById('user-info').textContent = 'Authentication failed';
                 }
 
                 // Load stats
