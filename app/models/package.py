@@ -13,7 +13,7 @@ class Package(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     linked_package_item = Column(ARRAY(String))  # Array of bubble_ids
-    # package_name column does NOT exist in PRODUCTION database - removed
+    name = Column(String)  # Package name
     created_date = Column(DateTime(timezone=True))
     price = Column(Numeric)
     panel = Column(String)  # Panel rating/reference
@@ -27,3 +27,5 @@ class Package(Base):
     type = Column(String)  # e.g., "Residential"
     special = Column(Boolean)
     password = Column(String)
+    description = Column(Text)  # Package description
+    items = Column(ARRAY(String))  # JSON array (stored as text array in DB)

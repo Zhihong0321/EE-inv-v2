@@ -42,11 +42,15 @@ async def initialize_db():
             import app.models.template
             import app.models.package
             import app.models.voucher
+            import app.models.product
+            import app.models.brand
+            import app.models.package_item
             
             # Explicitly reference models to avoid 'unused' removal by linters
             _ = [app.models.auth.AuthUser, app.models.customer.Customer, 
                  app.models.invoice.InvoiceNew, app.models.template.InvoiceTemplate, 
-                 app.models.package.Package, app.models.voucher.Voucher]
+                 app.models.package.Package, app.models.voucher.Voucher,
+                 app.models.product.Product, app.models.brand.Brand, app.models.package_item.PackageItem]
             
             await asyncio.to_thread(Base.metadata.create_all, bind=engine)
             logger.info("Database schema is up to date.")
@@ -508,6 +512,13 @@ try:
     app.include_router(users.router)
 except Exception as e:
     logger.error(f"Failed to load users router: {e}")
+
+try:
+    from app.api import packages
+    app.include_router(packages.router)
+    logger.info("✅ Package management router registered")
+except Exception as e:
+    logger.error(f"Failed to load packages router: {e}")
 
 
 # Health check
@@ -1500,6 +1511,18 @@ async def admin_customers():
     <html><head><title>Customers</title><meta http-equiv="refresh" content="0; url=/admin/" /></head>
     <body><script>alert("Customer management coming soon!"); window.location.href="/admin/";</script></body></html>
     """
+
+@app.get("/admin/packages", response_class=HTMLResponse)
+async def admin_packages(request: Request):
+    """Package Management Page"""
+    from fastapi.templating import Jinja2Templates
+    import os
+    
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    template_dir = os.path.join(base_dir, "app", "templates")
+    templates = Jinja2Templates(directory=template_dir)
+    
+    return templates.TemplateResponse("package_management.html", {"request": request})
 
 @app.get("/admin/users", response_class=HTMLResponse)
 async def admin_users():

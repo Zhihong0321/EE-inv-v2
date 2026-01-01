@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Package Management</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-button.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Package Management</h1>
+            <p class="text-gray-600">Manage packages, products, brands, and package items</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow-lg mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                    <button onclick="switchTab('packages')" class="tab-button active py-4 px-1 border-b-2 font-medium text-sm" id="tab-packages">
+                        Packages
+                    </button>
+                    <button onclick="switchTab('products')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700" id="tab-products">
+                        Products
+                    </button>
+                    <button onclick="switchTab('brands')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700" id="tab-brands">
+                        Brands
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Packages Tab -->
+        <div id="content-packages" class="tab-content active">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Packages</h2>
+                    <button onclick="showCreatePackageModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                        + New Package
+                    </button>
+                </div>
+                
+                <!-- Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <input type="text" id="package-search" placeholder="Search packages..." class="border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none" onkeyup="filterPackages()">
+                    <select id="package-type-filter" class="border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none" onchange="filterPackages()">
+                        <option value="">All Types</option>
+                        <option value="Residential">Residential</option>
+                        <option value="Commercial">Commercial</option>
+                        <option value="Tariff B&D Low Voltage">Tariff B&D Low Voltage</option>
+                    </select>
+                    <select id="package-active-filter" class="border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none" onchange="filterPackages()">
+                        <option value="">All Status</option>
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                    <button onclick="loadPackages()" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                        Refresh
+                    </button>
+                </div>
+
+                <!-- Packages Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panel Qty</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="packages-table-body" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="packages-pagination" class="mt-4 flex justify-between items-center"></div>
+            </div>
+        </div>
+
+        <!-- Products Tab -->
+        <div id="content-products" class="tab-content">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Products</h2>
+                </div>
+                
+                <!-- Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <input type="text" id="product-search" placeholder="Search products..." class="border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none" onkeyup="filterProducts()">
+                    <select id="product-brand-filter" class="border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none" onchange="filterProducts()">
+                        <option value="">All Brands</option>
+                    </select>
+                    <button onclick="loadProducts()" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                        Refresh
+                    </button>
+                </div>
+
+                <!-- Products Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost Price</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Selling Price</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="products-pagination" class="mt-4 flex justify-between items-center"></div>
+            </div>
+        </div>
+
+        <!-- Brands Tab -->
+        <div id="content-brands" class="tab-content">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Brands</h2>
+                </div>
+                
+                <!-- Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <input type="text" id="brand-search" placeholder="Search brands..." class="border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none" onkeyup="filterBrands()">
+                    <button onclick="loadBrands()" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                        Refresh
+                    </button>
+                </div>
+
+                <!-- Brands Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brands-table-body" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="2" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="brands-pagination" class="mt-4 flex justify-between items-center"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Package Modal -->
+    <div id="package-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4" id="modal-title">Create Package</h3>
+                    <form id="package-form" onsubmit="savePackage(event)">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Package Name *</label>
+                                <input type="text" id="package-name" required class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                                    <input type="number" step="0.01" id="package-price" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Panel Quantity</label>
+                                    <input type="number" id="package-panel-qty" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                    <select id="package-type" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none">
+                                        <option value="">Select Type</option>
+                                        <option value="Residential">Residential</option>
+                                        <option value="Commercial">Commercial</option>
+                                        <option value="Tariff B&D Low Voltage">Tariff B&D Low Voltage</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Panel Rating</label>
+                                    <input type="text" id="package-panel" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Invoice Description</label>
+                                <textarea id="package-invoice-desc" rows="4" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <textarea id="package-description" rows="3" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none"></textarea>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Discount (%)</label>
+                                    <input type="number" id="package-max-discount" min="0" max="100" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                    <input type="text" id="package-password" class="w-full border-2 border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none">
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="package-active" class="mr-2">
+                                    <span class="text-sm font-medium text-gray-700">Active</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="package-special" class="mr-2">
+                                    <span class="text-sm font-medium text-gray-700">Special</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="package-need-approval" class="mr-2">
+                                    <span class="text-sm font-medium text-gray-700">Need Approval</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-4">
+                            <button type="button" onclick="closePackageModal()" class="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                Save
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1/packages';
+        let currentPackagePage = 1;
+        let currentProductPage = 1;
+        let currentBrandPage = 1;
+        let editingPackageId = null;
+        let allPackages = [];
+        let allProducts = [];
+        let allBrands = [];
+
+        // Get auth token from localStorage or cookie
+        function getAuthToken() {
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+            if (token) return token;
+            // Try to get from cookie
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'auth_token' || name === 'token') return value;
+            }
+            return null;
+        }
+
+        // API call helper
+        async function apiCall(endpoint, options = {}) {
+            const token = getAuthToken();
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    ...options,
+                    headers
+                });
+                
+                if (response.status === 401) {
+                    alert('Please login to access package management');
+                    window.location.href = '/admin/login';
+                    return null;
+                }
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Request failed');
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                alert('Error: ' + error.message);
+                return null;
+            }
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('text-gray-500');
+            });
+            
+            document.getElementById(`content-${tab}`).classList.add('active');
+            const btn = document.getElementById(`tab-${tab}`);
+            btn.classList.add('active');
+            btn.classList.remove('text-gray-500');
+            
+            if (tab === 'packages') loadPackages();
+            else if (tab === 'products') loadProducts();
+            else if (tab === 'brands') loadBrands();
+        }
+
+        // Load packages
+        async function loadPackages(page = 1) {
+            const search = document.getElementById('package-search').value;
+            const type = document.getElementById('package-type-filter').value;
+            const active = document.getElementById('package-active-filter').value;
+            
+            const params = new URLSearchParams({
+                skip: (page - 1) * 20,
+                limit: 20
+            });
+            if (search) params.append('search', search);
+            if (type) params.append('type', type);
+            if (active) params.append('active_only', active);
+            
+            const data = await apiCall(`?${params}`);
+            if (!data) return;
+            
+            allPackages = data.packages;
+            currentPackagePage = page;
+            renderPackages(data.packages);
+            renderPagination('packages-pagination', data.total, data.page_size, page, loadPackages);
+        }
+
+        function renderPackages(packages) {
+            const tbody = document.getElementById('packages-table-body');
+            if (packages.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No packages found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = packages.map(pkg => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${pkg.name || 'Unnamed Package'}</div>
+                        <div class="text-xs text-gray-500">${pkg.bubble_id}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${pkg.type || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">${pkg.price ? 'RM ' + parseFloat(pkg.price).toFixed(2) : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${pkg.panel_qty || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${pkg.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${pkg.active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="editPackage('${pkg.bubble_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+                        <button onclick="deletePackage('${pkg.bubble_id}')" class="text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterPackages() {
+            loadPackages(1);
+        }
+
+        // Load products
+        async function loadProducts(page = 1) {
+            const search = document.getElementById('product-search').value;
+            const brand = document.getElementById('product-brand-filter').value;
+            
+            const params = new URLSearchParams({
+                skip: (page - 1) * 20,
+                limit: 20,
+                active_only: 'true'
+            });
+            if (search) params.append('search', search);
+            if (brand) params.append('brand_id', brand);
+            
+            const data = await apiCall(`/products?${params}`);
+            if (!data) return;
+            
+            allProducts = data.products;
+            currentProductPage = page;
+            renderProducts(data.products);
+            renderPagination('products-pagination', data.total, data.page_size, page, loadProducts);
+        }
+
+        function renderProducts(products) {
+            const tbody = document.getElementById('products-table-body');
+            if (products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No products found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = products.map(prod => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900">${prod.name || 'Unnamed Product'}</div>
+                        <div class="text-xs text-gray-500">${prod.description || ''}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${prod.brand_name || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${prod.cost_price ? 'RM ' + parseFloat(prod.cost_price).toFixed(2) : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">${prod.selling_price ? 'RM ' + parseFloat(prod.selling_price).toFixed(2) : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${prod.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${prod.active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterProducts() {
+            loadProducts(1);
+        }
+
+        // Load brands
+        async function loadBrands(page = 1) {
+            const search = document.getElementById('brand-search').value;
+            
+            const params = new URLSearchParams({
+                skip: (page - 1) * 20,
+                limit: 20
+            });
+            if (search) params.append('search', search);
+            
+            const data = await apiCall(`/brands?${params}`);
+            if (!data) return;
+            
+            allBrands = data.brands;
+            currentBrandPage = page;
+            renderBrands(data.brands);
+            renderPagination('brands-pagination', data.total, data.page_size, page, loadBrands);
+        }
+
+        async function loadBrandOptions() {
+            const data = await apiCall('/brands?limit=1000');
+            if (!data) return;
+            
+            const select = document.getElementById('product-brand-filter');
+            select.innerHTML = '<option value="">All Brands</option>' + 
+                data.brands.map(b => `<option value="${b.bubble_id}">${b.name || 'Unnamed Brand'}</option>`).join('');
+        }
+
+        function renderBrands(brands) {
+            const tbody = document.getElementById('brands-table-body');
+            if (brands.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">No brands found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = brands.map(brand => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${brand.name || 'Unnamed Brand'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${brand.logo ? `<img src="${brand.logo}" alt="${brand.name}" class="h-10 w-auto">` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterBrands() {
+            loadBrands(1);
+        }
+
+        // Package CRUD
+        function showCreatePackageModal() {
+            editingPackageId = null;
+            document.getElementById('modal-title').textContent = 'Create Package';
+            document.getElementById('package-form').reset();
+            document.getElementById('package-active').checked = true;
+            document.getElementById('package-modal').classList.remove('hidden');
+        }
+
+        async function editPackage(bubbleId) {
+            const data = await apiCall(`/${bubbleId}`);
+            if (!data) return;
+            
+            editingPackageId = bubbleId;
+            document.getElementById('modal-title').textContent = 'Edit Package';
+            document.getElementById('package-name').value = data.name || '';
+            document.getElementById('package-price').value = data.price || '';
+            document.getElementById('package-panel-qty').value = data.panel_qty || '';
+            document.getElementById('package-type').value = data.type || '';
+            document.getElementById('package-panel').value = data.panel || '';
+            document.getElementById('package-invoice-desc').value = data.invoice_desc || '';
+            document.getElementById('package-description').value = data.description || '';
+            document.getElementById('package-max-discount').value = data.max_discount || '';
+            document.getElementById('package-password').value = data.password || '';
+            document.getElementById('package-active').checked = data.active !== false;
+            document.getElementById('package-special').checked = data.special || false;
+            document.getElementById('package-need-approval').checked = data.need_approval || false;
+            document.getElementById('package-modal').classList.remove('hidden');
+        }
+
+        function closePackageModal() {
+            document.getElementById('package-modal').classList.add('hidden');
+            editingPackageId = null;
+        }
+
+        async function savePackage(event) {
+            event.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('package-name').value,
+                price: document.getElementById('package-price').value ? parseFloat(document.getElementById('package-price').value) : null,
+                panel_qty: document.getElementById('package-panel-qty').value ? parseInt(document.getElementById('package-panel-qty').value) : null,
+                type: document.getElementById('package-type').value || null,
+                panel: document.getElementById('package-panel').value || null,
+                invoice_desc: document.getElementById('package-invoice-desc').value || null,
+                description: document.getElementById('package-description').value || null,
+                max_discount: document.getElementById('package-max-discount').value ? parseInt(document.getElementById('package-max-discount').value) : null,
+                password: document.getElementById('package-password').value || null,
+                active: document.getElementById('package-active').checked,
+                special: document.getElementById('package-special').checked,
+                need_approval: document.getElementById('package-need-approval').checked
+            };
+            
+            let result;
+            if (editingPackageId) {
+                result = await apiCall(`/${editingPackageId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(formData)
+                });
+            } else {
+                result = await apiCall('', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
+            }
+            
+            if (result) {
+                closePackageModal();
+                loadPackages(currentPackagePage);
+                alert('Package saved successfully!');
+            }
+        }
+
+        async function deletePackage(bubbleId) {
+            if (!confirm('Are you sure you want to delete this package?')) return;
+            
+            const result = await apiCall(`/${bubbleId}`, { method: 'DELETE' });
+            if (result !== null) {
+                loadPackages(currentPackagePage);
+                alert('Package deleted successfully!');
+            }
+        }
+
+        // Pagination helper
+        function renderPagination(elementId, total, pageSize, currentPage, loadFn) {
+            const totalPages = Math.ceil(total / pageSize);
+            const element = document.getElementById(elementId);
+            
+            if (totalPages <= 1) {
+                element.innerHTML = `<div class="text-sm text-gray-500">Total: ${total}</div>`;
+                return;
+            }
+            
+            let html = `<div class="text-sm text-gray-500">Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, total)} of ${total}</div>`;
+            html += '<div class="flex space-x-2">';
+            
+            if (currentPage > 1) {
+                html += `<button onclick="loadFn(${currentPage - 1})" class="px-3 py-1 border rounded hover:bg-gray-50">Previous</button>`;
+            }
+            
+            for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+                html += `<button onclick="loadFn(${i})" class="px-3 py-1 border rounded ${i === currentPage ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}">${i}</button>`;
+            }
+            
+            if (currentPage < totalPages) {
+                html += `<button onclick="loadFn(${currentPage + 1})" class="px-3 py-1 border rounded hover:bg-gray-50">Next</button>`;
+            }
+            
+            html += '</div>';
+            element.innerHTML = html;
+        }
+
+        // Initialize
+        window.onload = function() {
+            loadPackages();
+            loadBrandOptions();
+        };
+    </script>
+</body>
+</html>
+
+
