@@ -88,8 +88,37 @@ def get_current_user(
     
     user = db.query(AuthUser).filter(AuthUser.user_id == user_id).first()
     if user is None:
-        logger.error(f"🔐 get_current_user: User not found in database for user_id={user_id}")
-        raise credentials_exception
+        # User doesn't exist - create from Auth Hub token payload
+        logger.error(f"🔐 get_current_user: User not found, creating from Auth Hub payload")
+        
+        # Extract user info from token payload
+        phone = payload.get("phone") or payload.get("whatsapp_number")
+        name = payload.get("name")
+        role = payload.get("role", "customer")
+        is_admin = payload.get("isAdmin", False)
+        
+        # Determine role - if isAdmin is true, set role to admin
+        if is_admin:
+            role = "admin"
+        
+        if not phone:
+            logger.error(f"🔐 get_current_user: No phone number in payload: {payload}")
+            raise credentials_exception
+        
+        # Create user in database
+        user = AuthUser(
+            user_id=str(user_id),  # Ensure it's a string
+            whatsapp_number=phone,
+            whatsapp_formatted=phone,
+            name=name,
+            role=role,
+            active=True,
+            app_permissions=["all"] if is_admin else []
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        logger.error(f"🔐 get_current_user: ✅ Created new user: {user.user_id} ({user.name})")
     
     if not user.active:
         logger.error(f"🔐 get_current_user: User {user_id} is inactive")
