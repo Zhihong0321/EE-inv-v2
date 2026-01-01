@@ -9,7 +9,7 @@ from app.schemas.auth import (
 from app.repositories.auth_repo import AuthRepository
 from app.utils.security import generate_otp, create_access_token
 from app.middleware.auth import get_current_user, get_api_key_user, get_request_ip
-from app.models.auth import AuthUser
+from app.models.user import User
 from app.services.whatsapp_service import whatsapp_service
 from app.config import settings
 
@@ -98,7 +98,7 @@ async def verify_otp(
 
 @router.get("/me", response_model=UserResponse)
 def get_current_user_info(
-    current_user: AuthUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get current user information"""
     return UserResponse(
@@ -125,14 +125,14 @@ def logout(
 @router.post("/api-key/generate", response_model=APIKeyCreateResponse)
 def generate_api_key(
     api_key_data: APIKeyCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate a new API key for microservice access"""
     auth_repo = AuthRepository(db)
 
     api_key, api_key_secret = auth_repo.create_api_key(
-        created_by=current_user.user_id,
+        created_by=current_user.id,
         service_name=api_key_data.service_name,
         app_domain=api_key_data.app_domain,
         permissions=api_key_data.permissions,
@@ -149,12 +149,12 @@ def generate_api_key(
 
 @router.get("/api-keys", response_model=list[APIKeyResponse])
 def get_api_keys(
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all API keys for current user"""
     auth_repo = AuthRepository(db)
-    api_keys = auth_repo.get_api_keys(current_user.user_id)
+    api_keys = auth_repo.get_api_keys(str(current_user.id))
 
     return [
         APIKeyResponse(
@@ -173,7 +173,7 @@ def get_api_keys(
 @router.delete("/api-keys/{key_id}")
 def revoke_api_key(
     key_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Revoke an API key"""

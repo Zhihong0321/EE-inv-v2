@@ -5,7 +5,7 @@ from app.database import get_db
 from app.schemas.template import TemplateCreate, TemplateUpdate, TemplateResponse, TemplateListResponse
 from app.repositories.template_repo import TemplateRepository
 from app.middleware.auth import get_current_user
-from app.models.auth import AuthUser
+from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/templates", tags=["Templates"])
 
@@ -16,7 +16,7 @@ from app.utils.helpers import validate_sst_number
 @router.post("", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
 def create_template(
     template_data: TemplateCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new invoice template"""
@@ -47,7 +47,7 @@ def create_template(
         disclaimer=template_data.disclaimer,
         apply_sst=template_data.apply_sst,
         is_default=template_data.is_default,
-        created_by=current_user.user_id,
+        created_by=current_user.id,
     )
     return template
 
@@ -55,7 +55,7 @@ def create_template(
 @router.get("/{bubble_id}", response_model=TemplateResponse)
 def get_template(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get template by ID"""
@@ -76,7 +76,7 @@ def list_templates(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     active_only: Optional[bool] = True,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all templates"""
@@ -121,7 +121,7 @@ def list_templates(
 def update_template(
     bubble_id: str,
     template_data: TemplateUpdate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update template"""
@@ -153,7 +153,7 @@ def update_template(
 @router.delete("/{bubble_id}")
 def delete_template(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete template (soft delete)"""
@@ -172,7 +172,7 @@ def delete_template(
 @router.post("/{bubble_id}/set-default", response_model=TemplateResponse)
 def set_default_template(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Set template as default"""

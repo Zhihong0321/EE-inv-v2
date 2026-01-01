@@ -5,7 +5,7 @@ from app.database import get_db
 from app.schemas.user import UserResponse, UserCreate, UserUpdate
 from app.repositories.user_repo import UserRepository
 from app.middleware.auth import get_current_user
-from app.models.auth import AuthUser
+from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
@@ -17,7 +17,7 @@ def list_users(
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query("registration_date", description="Sort by: name, email, registration_date, whatsapp_number"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all users with their agent profiles, sorted by specified column"""
@@ -54,7 +54,7 @@ def list_users(
 @router.get("/{user_bubble_id}", response_model=UserResponse)
 def get_user(
     user_bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get user by bubble_id"""
@@ -80,7 +80,7 @@ def get_user(
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
     user_data: UserCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new user with agent profile"""
@@ -112,7 +112,7 @@ def create_user(
 def update_user(
     user_bubble_id: str,
     user_data: UserUpdate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update user and/or agent profile"""

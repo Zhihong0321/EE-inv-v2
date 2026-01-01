@@ -4,7 +4,8 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.utils.security import decode_access_token
-from app.models.auth import AuthUser, APIKey
+from app.models.user import User
+from app.models.auth import APIKey
 from app.config import settings
 from typing import Optional, List
 from urllib.parse import quote
@@ -52,59 +53,43 @@ def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
-) -> AuthUser:
-    """Get current authenticated user from Auth Hub cookie or Authorization header"""
-    import logging
-    logger = logging.getLogger(__name__)
-    
+) -> User:
+    """Get current authenticated user from Auth Hub cookie"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Get token from cookie (Auth Hub) or header (fallback)
+    # Get token from cookie
     token = get_auth_token_from_request(request)
-    
     if not token:
-        logger.error(f"🔐 get_current_user: No token found in request")
         raise credentials_exception
-
-    logger.error(f"🔐 get_current_user: Token found, length={len(token)}")
     
+    # Verify token
     payload = decode_access_token(token)
-    if payload is None:
-        logger.error(f"🔐 get_current_user: Token decode returned None - check JWT_SECRET_KEY")
+    if not payload:
         raise credentials_exception
-
-    logger.error(f"🔐 get_current_user: Token decoded successfully, payload keys: {list(payload.keys())}")
     
+    # Get userId from token
     user_id = get_user_id_from_payload(payload)
-    if user_id is None:
-        logger.error(f"🔐 get_current_user: No userId/sub in payload: {payload}")
-        raise credentials_exception
-
-    logger.error(f"🔐 get_current_user: Looking for user_id={user_id} (type: {type(user_id).__name__})")
-    
-    user = db.query(AuthUser).filter(AuthUser.user_id == user_id).first()
-    if user is None:
-        logger.error(f"🔐 get_current_user: User not found in database for user_id={user_id}")
-        logger.error(f"🔐 get_current_user: Token payload: {payload}")
-        logger.error(f"🔐 get_current_user: User must be registered in database first")
+    if not user_id:
         raise credentials_exception
     
-    if not user.active:
-        logger.error(f"🔐 get_current_user: User {user_id} is inactive")
+    # Get user from database
+    try:
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user or not user.active:
+            raise credentials_exception
+        return user
+    except (ValueError, TypeError):
         raise credentials_exception
-
-    logger.error(f"🔐 get_current_user: ✅ User authenticated: {user.user_id}")
-    return user
 
 
 def get_api_key_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
-) -> tuple[AuthUser, APIKey]:
+) -> tuple[User, APIKey]:
     """
     Get user from API key authentication (for microservices)
 
@@ -139,18 +124,21 @@ def get_api_key_user(
                 detail="API key expired",
             )
 
-    # Get user
-    user = db.query(AuthUser).filter(AuthUser.user_id == key_record.created_by).first()
-    if user is None or not user.active:
+    # Get user - created_by is now user.id (integer) as string
+    try:
+        created_by_int = int(key_record.created_by)
+        user = db.query(User).filter(User.id == created_by_int).first()
+        if user is None or not user.active:
+            raise credentials_exception
+        return user, key_record
+    except (ValueError, TypeError):
         raise credentials_exception
-
-    return user, key_record
 
 
 def get_optional_user(
     request: Request,
     db: Session = Depends(get_db)
-) -> Optional[AuthUser]:
+) -> Optional[User]:
     """Get user if token (cookie or header) or API key is present, otherwise return None"""
     try:
         # Try API Key first (from Authorization header)
@@ -169,8 +157,13 @@ def get_optional_user(
                     if expires_at < datetime.now(timezone.utc):
                         return None
                 
-                user = db.query(AuthUser).filter(AuthUser.user_id == key_record.created_by).first()
-                return user if user and user.active else None
+                # created_by is now user.id (integer) as string
+                try:
+                    created_by_int = int(key_record.created_by)
+                    user = db.query(User).filter(User.id == created_by_int).first()
+                    return user if user and user.active else None
+                except (ValueError, TypeError):
+                    return None
         
         # Try JWT token (from cookie or header)
         token = get_auth_token_from_request(request)
@@ -179,8 +172,12 @@ def get_optional_user(
             if payload:
                 user_id = get_user_id_from_payload(payload)
                 if user_id:
-                    user = db.query(AuthUser).filter(AuthUser.user_id == user_id).first()
-                    return user if user and user.active else None
+                    try:
+                        user_id_int = int(user_id)
+                        user = db.query(User).filter(User.id == user_id_int).first()
+                        return user if user and user.active else None
+                    except (ValueError, TypeError):
+                        return None
     except Exception:
         pass
 
@@ -195,8 +192,8 @@ def check_permission(required_permission: str, permissions: List[str]) -> bool:
 def require_permission(required_permission: str):
     """Dependency to require specific permission"""
     def permission_checker(
-        user: AuthUser = Depends(get_current_user)
-    ) -> AuthUser:
+        user: User = Depends(get_current_user)
+    ) -> User:
         # Admin has all permissions
         if user.role == "admin":
             return user

@@ -6,7 +6,7 @@ from app.database import get_db
 from app.repositories.invoice_repo import InvoiceRepository
 from app.repositories.customer_repo import CustomerRepository
 from app.middleware.auth import get_current_user
-from app.models.auth import AuthUser
+from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/migration", tags=["Data Migration"])
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1/migration", tags=["Data Migration"])
 def migrate_old_invoices(
     limit: int = 10,
     background_tasks: BackgroundTasks = None,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -92,7 +92,7 @@ def migrate_old_invoices(
                             state=seda_data.get("state"),
                             ic_number=seda_data.get("ic_no"),
                             linked_seda_registration=old_invoice["linked_seda_registration"],
-                            created_by=current_user.user_id,
+                            created_by=current_user.id,
                         )
                     else:
                         customer = existing_customer
@@ -101,7 +101,7 @@ def migrate_old_invoices(
             if not customer:
                 customer = customer_repo.create(
                     name=f"Customer {old_invoice['invoice_id']}",
-                    created_by=current_user.user_id,
+                    created_by=current_user.id,
                 )
 
             # Get agent info
@@ -200,7 +200,7 @@ def migrate_old_invoices(
 @router.get("/status", response_model=dict)
 def get_migration_status(
     db: Session = Depends(get_db),
-    current_user: AuthUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get migration status"""
     # Count old invoices

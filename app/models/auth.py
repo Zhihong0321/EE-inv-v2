@@ -3,23 +3,6 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 
-class AuthUser(Base):
-    __tablename__ = "auth_user"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, unique=True, nullable=False, index=True)
-    whatsapp_number = Column(String, unique=True, nullable=False, index=True)
-    whatsapp_formatted = Column(String, nullable=False)
-    name = Column(String)
-    role = Column(String, nullable=False)  # admin, agent, customer
-    active = Column(Boolean, default=True)
-    app_permissions = Column(ARRAY(String))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_login_at = Column(DateTime(timezone=True))
-    last_otp_at = Column(DateTime(timezone=True))
-    last_otp_code = Column(String)  # For verification (temporary)
-
-
 class APIKey(Base):
     __tablename__ = "api_key"
 
@@ -31,7 +14,7 @@ class APIKey(Base):
     permissions = Column(ARRAY(String))  # ['create_invoice', 'read_invoice', ...]
     active = Column(Boolean, default=True)
     expires_at = Column(DateTime(timezone=True))
-    created_by = Column(String, ForeignKey("auth_user.user_id"))
+    created_by = Column(Integer, ForeignKey("user.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -40,7 +23,7 @@ class AuthSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, unique=True, nullable=False, index=True)
-    user_id = Column(String, ForeignKey("auth_user.user_id"), index=True)
+    user_id = Column(Integer, ForeignKey("user.id"), index=True)
     token_hash = Column(String, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     ip_address = Column(String)

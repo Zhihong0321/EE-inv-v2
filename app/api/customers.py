@@ -5,7 +5,7 @@ from app.database import get_db
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerResponse
 from app.repositories.customer_repo import CustomerRepository
 from app.middleware.auth import get_current_user
-from app.models.auth import AuthUser
+from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Customers"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/v1/customers", tags=["Customers"])
 @router.post("", response_model=CustomerResponse, status_code=status.HTTP_201_CREATED)
 def create_customer(
     customer_data: CustomerCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new customer"""
@@ -30,7 +30,7 @@ def create_customer(
         linked_seda_registration=customer_data.linked_seda_registration,
         linked_old_customer=customer_data.linked_old_customer,
         notes=customer_data.notes,
-        created_by=current_user.user_id,
+        created_by=current_user.id,
     )
     return customer
 
@@ -38,7 +38,7 @@ def create_customer(
 @router.get("/{customer_id}", response_model=CustomerResponse)
 def get_customer(
     customer_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get customer by ID"""
@@ -57,7 +57,7 @@ def get_customer(
 @router.get("/phone/{phone}", response_model=CustomerResponse)
 def get_customer_by_phone(
     phone: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get customer by phone number"""
@@ -78,7 +78,7 @@ def list_customers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     search: Optional[str] = None,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all customers with optional search"""
@@ -97,7 +97,7 @@ def list_customers(
 def update_customer(
     customer_id: str,
     customer_data: CustomerUpdate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update customer"""
@@ -120,7 +120,7 @@ def update_customer(
 @router.delete("/{customer_id}")
 def delete_customer(
     customer_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete customer"""

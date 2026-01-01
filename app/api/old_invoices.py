@@ -4,7 +4,7 @@ from sqlalchemy import text
 from typing import Optional, List, Dict, Any
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.models.auth import AuthUser
+from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/legacy", tags=["Legacy Data (Read-Only)"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/v1/legacy", tags=["Legacy Data (Read-Only)"])
 def list_old_invoices(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List old invoices (read-only)"""
@@ -51,7 +51,7 @@ def list_old_invoices(
 @router.get("/invoices/{bubble_id}", response_model=dict)
 def get_old_invoice(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get old invoice by ID (read-only)"""
@@ -86,7 +86,7 @@ def get_old_invoice(
 def list_old_agents(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List old agents (read-only)"""
@@ -114,7 +114,7 @@ def list_old_agents(
 @router.get("/agents/{bubble_id}", response_model=dict)
 def get_old_agent(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get old agent by ID (read-only)"""
@@ -135,7 +135,7 @@ def get_old_agent(
 def list_old_packages(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List old packages (read-only)"""
@@ -172,7 +172,7 @@ def list_old_packages(
 @router.get("/packages/{bubble_id}", response_model=dict)
 def get_old_package(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get old package by ID (read-only)"""
@@ -206,7 +206,7 @@ def get_old_package(
 def list_old_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List old products (read-only)"""
@@ -235,7 +235,7 @@ def list_old_products(
 @router.get("/products/{bubble_id}", response_model=dict)
 def get_old_product(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get old product by ID (read-only)"""
@@ -256,7 +256,7 @@ def get_old_product(
 def list_old_seda_registrations(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List old SEDA registrations (read-only)"""
@@ -293,7 +293,7 @@ def list_old_seda_registrations(
 @router.get("/seda-registrations/{bubble_id}", response_model=dict)
 def get_old_seda_registration(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get old SEDA registration by ID (read-only)"""

@@ -33,6 +33,6 @@ class InvoiceTemplate(Base):
     # Metadata
     active = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)
-    created_by = Column(String, ForeignKey("auth_user.user_id"))
+    created_by = Column(Integer, ForeignKey("user.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

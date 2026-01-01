@@ -36,6 +36,8 @@ async def initialize_db():
         try:
             logger.info("Internal network ready. Syncing models...")
             # CRITICAL: Import ALL models here to ensure Base knows about them
+            # IMPORT USER FIRST - other models have foreign keys referencing user.id
+            import app.models.user
             import app.models.auth
             import app.models.customer
             import app.models.invoice
@@ -47,7 +49,7 @@ async def initialize_db():
             import app.models.package_item
             
             # Explicitly reference models to avoid 'unused' removal by linters
-            _ = [app.models.auth.AuthUser, app.models.customer.Customer, 
+            _ = [app.models.user.User, app.models.customer.Customer, 
                  app.models.invoice.InvoiceNew, app.models.template.InvoiceTemplate, 
                  app.models.package.Package, app.models.voucher.Voucher,
                  app.models.product.Product, app.models.brand.Brand, app.models.package_item.PackageItem]
@@ -128,70 +130,40 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": str(exc), "type": type(exc).__name__, "status": "error"}
     )
 
-# Auth Hub middleware - Redirect HTML requests without auth cookie
+# Auth Hub middleware - Simple redirect if no cookie
 @app.middleware("http")
 async def auth_hub_middleware(request: Request, call_next):
     """Redirect HTML requests to Auth Hub if no auth_token cookie"""
-    # Public routes that don't require authentication
-    public_routes = [
-        "/",
-        "/create-invoice",
-        "/test-create-invoice",
-        "/test-create-invoice-simple",
-        "/demo/random-package-link",
-        "/admin/login",
-    ]
-    
-    # Skip API endpoints, static files, and public routes
     path = request.url.path
+    
+    # Skip API, static files, public routes
     if (path.startswith("/api/") or 
         path.startswith("/static/") or 
-        path.startswith("/view/") or  # Public invoice share links
-        path in public_routes):
+        path.startswith("/view/") or
+        path in ["/", "/create-invoice", "/admin/login"]):
         return await call_next(request)
     
-    # Check if this is an HTML request (admin pages or HTML accept header)
-    accept_header = request.headers.get("accept", "")
-    is_html_request = "text/html" in accept_header or path.startswith("/admin/")
-    
-    if not is_html_request:
+    # Only check HTML requests
+    if "text/html" not in request.headers.get("accept", "") and not path.startswith("/admin/"):
         return await call_next(request)
     
-    # Following Auth Hub docs EXACTLY:
-    # 1. Get Token from Cookie
+    # Check cookie
     auth_token = request.cookies.get("auth_token")
-    
-    # Debug logging - use ERROR level so it shows in Railway logs
-    import logging
-    logger = logging.getLogger(__name__)
-    
     if not auth_token:
-        # No token - redirect to Auth Hub with Return URL
-        logger.error(f"🔐 Auth middleware [{path}]: No auth_token cookie found - redirecting to Auth Hub")
         from app.middleware.auth import redirect_to_auth_hub
         return redirect_to_auth_hub(request)
     
-    logger.error(f"🔐 Auth middleware [{path}]: Found cookie, length={len(auth_token)}")
-    
+    # Verify token
     try:
-        # 2. Verify Token
         from app.utils.security import decode_access_token
-        payload = decode_access_token(auth_token)
-        
-        if payload:
-            # Token is valid, allow request through
-            logger.error(f"🔐 Auth middleware [{path}]: ✅ Token verified successfully, userId={payload.get('userId') or payload.get('sub')}")
+        if decode_access_token(auth_token):
             return await call_next(request)
-        else:
-            # Token invalid - redirect to Auth Hub
-            logger.error(f"🔐 Auth middleware [{path}]: ❌ Token decode returned None - redirecting to Auth Hub")
-            from app.middleware.auth import redirect_to_auth_hub
-            return redirect_to_auth_hub(request)
-    except Exception as e:
-        # Token invalid, expired, or JWT_SECRET_KEY mismatch - redirect to Auth Hub
-        logger.error(f"🔐 Auth middleware [{path}]: ❌ Token verification exception: {str(e)}")
-        from app.middleware.auth import redirect_to_auth_hub
-        return redirect_to_auth_hub(request)
+    except:
+        pass
+    
+    # Invalid token - redirect
+    from app.middleware.auth import redirect_to_auth_hub
+    return redirect_to_auth_hub(request)
 
 # Request logging middleware - LOG EVERY REQUEST
 @app.middleware("http")
@@ -657,7 +629,7 @@ async def sniper_debug(request: Request):
 def setup_admin(whatsapp_number: str):
     """Seed the first admin user via WhatsApp number"""
     from app.railway_db import get_session_local, get_engine, Base
-    from app.models.auth import AuthUser
+    from app.models.user import User
     import uuid
 
     # Use lazy session
@@ -667,26 +639,9 @@ def setup_admin(whatsapp_number: str):
         # Ensure tables exist for this specific request
         Base.metadata.create_all(bind=get_engine())
         
-        user = db.query(AuthUser).filter(AuthUser.whatsapp_number == whatsapp_number).first()
-        if user:
-            user.role = "admin"
-            user.active = True
-            db.commit()
-            return {"message": f"User {whatsapp_number} updated to admin"}
-
-        # Create new admin user
-        new_admin = AuthUser(
-            user_id=str(uuid.uuid4()),
-            whatsapp_number=whatsapp_number,
-            whatsapp_formatted=f"+{whatsapp_number}",
-            name="Super Admin",
-            role="admin",
-            active=True,
-            app_permissions=["*"]
-        )
-        db.add(new_admin)
-        db.commit()
-        return {"message": f"Super Admin {whatsapp_number} created successfully"}
+        # Users come from shared database - cannot create here
+        # This endpoint is deprecated with Auth Hub
+        return {"message": "User management is handled by Auth Hub. Users must exist in shared database."}
     except Exception as e:
         return {"error": str(e)}
     finally:

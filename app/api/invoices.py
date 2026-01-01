@@ -16,7 +16,7 @@ from app.schemas.invoice import (
 from app.repositories.invoice_repo import InvoiceRepository
 from app.repositories.customer_repo import CustomerRepository
 from app.middleware.auth import get_current_user, get_api_key_user, get_optional_user, get_request_ip
-from app.models.auth import AuthUser
+from app.models.user import User
 from app.config import settings
 from app.utils.html_generator import generate_invoice_html
 from app.utils.pdf_generator import generate_invoice_pdf, sanitize_filename
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/v1/invoices", tags=["Invoices"])
 def create_invoice(
     invoice_data: InvoiceCreate,
     request: Request,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new invoice (auto-create customer if customer_id not provided)"""
@@ -47,7 +47,7 @@ def create_invoice(
             phone=invoice_data.customer_phone,
             email=invoice_data.customer_email,
             address=invoice_data.customer_address,
-            created_by=current_user.user_id,
+            created_by=current_user.id,
         )
 
     # Calculate item totals
@@ -114,7 +114,7 @@ def create_invoice(
         customer_email_snapshot=customer.email,
         agent_name_snapshot=agent_name,
         package_name_snapshot=package_name,
-        created_by=current_user.user_id,
+        created_by=current_user.id,
     )
 
     return invoice
@@ -124,7 +124,7 @@ def create_invoice(
 async def create_invoice_on_the_fly(
     request_data: InvoiceOnTheFlyRequest,
     request: Request,
-    current_user: Optional[AuthUser] = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -168,7 +168,7 @@ async def create_invoice_on_the_fly(
             customer_address=request_data.customer_address,
             epp_fee_amount=request_data.epp_fee_amount,
             epp_fee_description=request_data.epp_fee_description,
-            created_by=current_user.user_id if current_user else None
+            created_by=current_user.id if current_user else None
         )
         # Build base URL for share link
         base_url = str(request.base_url).rstrip("/")
@@ -204,7 +204,7 @@ def list_invoices(
     agent_id: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List invoices with filters"""
@@ -230,7 +230,7 @@ def list_invoices(
 @router.get("/{bubble_id}", response_model=InvoiceResponse)
 def get_invoice(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get invoice by ID"""
@@ -250,7 +250,7 @@ def get_invoice(
 def download_invoice_pdf(
     bubble_id: str,
     request: Request,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -321,7 +321,7 @@ def download_invoice_pdf(
 @router.get("/number/{invoice_number}", response_model=InvoiceResponse)
 def get_invoice_by_number(
     invoice_number: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get invoice by invoice number"""
@@ -341,7 +341,7 @@ def get_invoice_by_number(
 def update_invoice(
     bubble_id: str,
     invoice_data: InvoiceUpdate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update invoice"""
@@ -364,7 +364,7 @@ def update_invoice(
 @router.delete("/{bubble_id}")
 def delete_invoice(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete invoice"""
@@ -385,7 +385,7 @@ def delete_invoice(
 def add_invoice_item(
     bubble_id: str,
     item_data: InvoiceItemCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Add item to invoice"""
@@ -418,7 +418,7 @@ def update_invoice_item(
     bubble_id: str,
     item_id: str,
     item_data: InvoiceItemUpdate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update invoice item"""
@@ -447,7 +447,7 @@ def update_invoice_item(
 def delete_invoice_item(
     bubble_id: str,
     item_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete invoice item"""
@@ -468,7 +468,7 @@ def delete_invoice_item(
 def add_payment(
     bubble_id: str,
     payment_data: InvoicePaymentCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Add payment to invoice"""
@@ -491,7 +491,7 @@ def add_payment(
         bank_name=payment_data.bank_name,
         notes=payment_data.notes,
         attachment_urls=payment_data.attachment_urls,
-        created_by=current_user.user_id,
+        created_by=current_user.id,
     )
 
     return payment
@@ -501,7 +501,7 @@ def add_payment(
 def generate_share_link(
     bubble_id: str,
     expires_in_days: Optional[int] = None,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate a shareable link for the invoice"""
@@ -528,7 +528,7 @@ def generate_share_link(
 @router.post("/{bubble_id}/mark-sent", response_model=InvoiceResponse)
 def mark_invoice_sent(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Mark invoice as sent"""
@@ -548,7 +548,7 @@ def mark_invoice_sent(
 @router.post("/{bubble_id}/mark-paid", response_model=InvoiceResponse)
 def mark_invoice_paid(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Mark invoice as fully paid"""

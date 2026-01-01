@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.models.auth import AuthUser
+from app.models.user import User
 from app.repositories.package_repo import PackageRepository
 from app.schemas.package import (
     PackageCreate,
@@ -30,7 +30,7 @@ def list_packages(
     active_only: Optional[bool] = Query(None, description="Filter by active status"),
     type: Optional[str] = Query(None, description="Filter by package type"),
     search: Optional[str] = Query(None, description="Search in name, description"),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all packages"""
@@ -98,7 +98,7 @@ def list_packages(
 @router.get("/{bubble_id}", response_model=PackageResponse)
 def get_package(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get package by bubble_id"""
@@ -136,7 +136,7 @@ def get_package(
 @router.post("", response_model=PackageResponse, status_code=status.HTTP_201_CREATED)
 def create_package(
     package_data: PackageCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new package"""
@@ -156,7 +156,7 @@ def create_package(
         need_approval=package_data.need_approval,
         password=package_data.password,
         linked_package_items=package_data.linked_package_items,
-        created_by=current_user.user_id
+        created_by=current_user.id
     )
     
     return PackageResponse.model_validate(package)
@@ -166,7 +166,7 @@ def create_package(
 def update_package(
     bubble_id: str,
     package_data: PackageUpdate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update package"""
@@ -201,7 +201,7 @@ def update_package(
 @router.delete("/{bubble_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_package(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete package"""
@@ -218,7 +218,7 @@ def delete_package(
 @router.post("/items", response_model=PackageItemResponse, status_code=status.HTTP_201_CREATED)
 def create_package_item(
     item_data: PackageItemCreate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new package item"""
@@ -237,7 +237,7 @@ def create_package_item(
         qty=item_data.qty,
         total_cost=item_data.total_cost,
         sort=item_data.sort,
-        created_by=current_user.user_id
+        created_by=current_user.id
     )
     
     # Get product and brand info
@@ -262,7 +262,7 @@ def create_package_item(
 def update_package_item(
     bubble_id: str,
     item_data: PackageItemUpdate,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update package item"""
@@ -311,7 +311,7 @@ def update_package_item(
 @router.delete("/items/{bubble_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_package_item(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete package item"""
@@ -332,7 +332,7 @@ def list_products(
     active_only: bool = Query(True, description="Show only active products"),
     search: Optional[str] = Query(None, description="Search products"),
     brand_id: Optional[str] = Query(None, description="Filter by brand"),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all products"""
@@ -366,7 +366,7 @@ def list_products(
 @router.get("/products/{bubble_id}", response_model=ProductResponse)
 def get_product(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get product by bubble_id"""
@@ -394,7 +394,7 @@ def list_brands(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     search: Optional[str] = Query(None, description="Search brands"),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all brands"""
@@ -412,7 +412,7 @@ def list_brands(
 @router.get("/brands/{bubble_id}", response_model=BrandResponse)
 def get_brand(
     bubble_id: str,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get brand by bubble_id"""

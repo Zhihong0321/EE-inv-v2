@@ -68,7 +68,7 @@ class InvoiceNew(Base):
     migration_status = Column(String, default="new")  # new, migrated, processed
 
     # Metadata
-    created_by = Column(String, ForeignKey("auth_user.user_id"))
+    created_by = Column(Integer, ForeignKey("user.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sent_at = Column(DateTime(timezone=True))
@@ -133,14 +133,14 @@ class InvoicePaymentNew(Base):
 
     # Status
     status = Column(String, default="pending")  # pending, verified, rejected
-    verified_by = Column(String, ForeignKey("auth_user.user_id"))
+    verified_by = Column(Integer, ForeignKey("user.id"))
     verified_at = Column(DateTime(timezone=True))
 
     # Attachments
     attachment_urls = Column(ARRAY(String))
 
     # Metadata
-    created_by = Column(String, ForeignKey("auth_user.user_id"))
+    created_by = Column(Integer, ForeignKey("user.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
@@ -154,7 +154,7 @@ class AuditLog(Base):
     entity_type = Column(String, nullable=False)  # 'invoice', 'customer', 'template', etc.
     entity_id = Column(String, nullable=False, index=True)
     action = Column(String, nullable=False)  # 'create', 'update', 'delete', 'view', etc.
-    user_id = Column(String, ForeignKey("auth_user.user_id"))
+    user_id = Column(Integer, ForeignKey("user.id"))
     old_values = Column(Text)  # JSON string
     new_values = Column(Text)  # JSON string
     ip_address = Column(String)
