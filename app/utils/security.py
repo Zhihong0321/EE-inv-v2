@@ -22,9 +22,14 @@ def decode_access_token(token: str) -> Optional[dict]:
     """Decode and verify a JWT access token (Auth Hub compatible)"""
     try:
         # Use JWT_SECRET_KEY (must match Auth Hub's JWT_SECRET)
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        secret = settings.JWT_SECRET_KEY
+        payload = jwt.decode(token, secret, algorithms=[settings.JWT_ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as e:
+        # Log JWT error for debugging (helps identify secret mismatch)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"JWT decode failed: {str(e)} | Secret length: {len(secret)} | First 3 chars: {secret[:3] if secret else 'None'}")
         return None
 
 
