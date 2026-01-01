@@ -165,9 +165,10 @@ async def auth_hub_middleware(request: Request, call_next):
     is_from_auth_hub_referer = "auth.atap.solar" in referer
     
     # Check if referer is from same domain (internal navigation)
-    # Extract host from request
+    # Extract host from request - handle both quote.atap.solar and any subdomain
     host = request.headers.get("host", "").lower()
-    is_internal_navigation = host and host in referer
+    # Check if referer contains our domain (for internal navigation)
+    is_internal_navigation = host and (host in referer or referer.startswith(f"https://{host}") or referer.startswith(f"http://{host}"))
     
     # Check query parameters
     query_str = str(request.url.query).lower()
