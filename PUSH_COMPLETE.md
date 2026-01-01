@@ -54,7 +54,7 @@ The file `app/repositories/auth_repo.py` has been excluded from the git reposito
 | Variable | Value |
 |----------|---------|
 | JWT_SECRET_KEY | Click "Generate" button |
-| WHATSAPP_API_URL | `https://whatsapp-api-server-production-c15f.up.railway.app/api` |
+| WHATSAPP_API_URL | `https://quote.atap.solar/api` |
 | OTP_EXPIRE_SECONDS | `1800` |
 | OTP_LENGTH | `6` |
 | INVOICE_NUMBER_PREFIX | `INV` |
@@ -68,14 +68,14 @@ The file `app/repositories/auth_repo.py` has been excluded from the git reposito
 **Step 4:** Deploy
 - Railway will auto-redeploy after configuration
 - Wait 2-3 minutes for deployment to complete
-- Your app URL will be: `https://ee-invoicing-v2-production-xxxx.railway.app`
+- Your app URL will be: `https://quote.atap.solar`
 
 ### 2. Post-Deployment Setup
 
 **1. Access Your Application**
 - Visit your Railway app URL
-- API Documentation: `https://your-app.railway.app/docs`
-- Admin Dashboard: `https://your-app.railway.app/admin/`
+- API Documentation: `https://quote.atap.solar/docs`
+- Admin Dashboard: `https://quote.atap.solar/admin/`
 
 **2. Create Admin User**
 - Visit `/admin/login`
@@ -116,19 +116,19 @@ After first login, you need to set admin role:
 **Test Login:**
 ```bash
 # Send OTP
-curl -X POST https://your-app.railway.app/api/v1/auth/whatsapp/send-otp \
+curl -X POST https://quote.atap.solar/api/v1/auth/whatsapp/send-otp \
   -H "Content-Type: application/json" \
   -d '{"whatsapp_number": "60123456789"}'
 
 # Verify OTP (replace with actual OTP)
-curl -X POST https://your-app.railway.app/api/v1/auth/whatsapp/verify \
+curl -X POST https://quote.atap.solar/api/v1/auth/whatsapp/verify \
   -H "Content-Type: application/json" \
   -d '{"whatsapp_number": "60123456789", "otp_code": "123456"}'
 ```
 
 **Test Create Invoice:**
 ```bash
-curl -X POST https://your-app.railway.app/api/v1/invoices \
+curl -X POST https://quote.atap.solar/api/v1/invoices \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{

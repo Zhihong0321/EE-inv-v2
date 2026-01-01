@@ -91,7 +91,7 @@ git push
 ### 1. Check Health Endpoint
 
 ```bash
-curl https://your-app.railway.app/api/v1/health
+curl https://quote.atap.solar/api/v1/health
 ```
 
 **Expected Response:**
@@ -106,7 +106,7 @@ curl https://your-app.railway.app/api/v1/health
 ### 2. Check DB Info Endpoint
 
 ```bash
-curl https://your-app.railway.app/api/v1/db-info
+curl https://quote.atap.solar/api/v1/db-info
 ```
 
 **Expected Response:**

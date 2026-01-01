@@ -51,14 +51,14 @@ The Invoice Creation Page is a web-based form that allows sales agents to create
 https://your-domain.com/create-invoice
 ```
 
-**Note:** Replace `your-domain.com` with your actual production domain (e.g., `ee-inv-v2-production.up.railway.app`)
+**Note:** Replace `your-domain.com` with your actual production domain (e.g., `quote.atap.solar`)
 
 **How to Find Your Production Domain:**
 1. Go to Railway Dashboard: https://railway.app
 2. Select your project → Your Invoicing Service
 3. Go to Settings → Public Domain
-4. Copy the domain (e.g., `ee-inv-v2-production.up.railway.app`)
-5. Your base URL: `https://ee-inv-v2-production.up.railway.app/create-invoice`
+4. Copy the domain (e.g., `quote.atap.solar`)
+5. Your base URL: `https://quote.atap.solar/create-invoice`
 
 ### Localhost/Development URL
 

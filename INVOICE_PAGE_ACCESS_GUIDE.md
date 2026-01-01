@@ -29,7 +29,7 @@ http://localhost:8080/create-invoice?package_id=1703833647950x572894707690242050
 
 **Base URL Format:**
 ```
-https://your-app-name.railway.app/create-invoice
+https://quote.atap.solar/create-invoice
 ```
 
 **How to Find Your Production URL:**
@@ -41,7 +41,7 @@ https://your-app-name.railway.app/create-invoice
 4. Click on your **Invoicing Service** (FastAPI app)
 5. Go to **Settings** tab
 6. Find **Public Domain** section
-7. Copy the URL (e.g., `https://ee-inv-v2-production.up.railway.app-xxxx.railway.app`)
+7. Copy the URL (e.g., `https://quote.atap.solar`)
 
 #### Method 2: Railway Service Settings
 1. Railway Dashboard → Your Project
@@ -52,8 +52,8 @@ https://your-app-name.railway.app/create-invoice
 
 **Example Production URLs:**
 ```
-https://ee-inv-v2-production.up.railway.app-xxxx.railway.app/create-invoice
-https://ee-inv-v2-production.up.railway.app-xxxx.railway.app/create-invoice?package_id=1703833647950x572894707690242050
+https://quote.atap.solar/create-invoice
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050
 ```
 
 ---
@@ -161,12 +161,12 @@ https://[your-railway-domain].railway.app/create-invoice
 
 5. **Generate/Copy Domain**
    - If no domain exists, click **"Generate Domain"**
-   - Copy the domain (e.g., `ee-inv-v2-production.up.railway.app-xxxx`)
-   - Your full URL: `https://ee-inv-v2-production.up.railway.app-xxxx.railway.app`
+   - Copy the domain (e.g., `quote.atap.solar-xxxx`)
+   - Your full URL: `https://quote.atap.solar`
 
 6. **Access Invoice Page**
    - Add `/create-invoice` to the domain
-   - Full URL: `https://ee-inv-v2-production.up.railway.app-xxxx.railway.app/create-invoice`
+   - Full URL: `https://quote.atap.solar/create-invoice`
 
 ---
 
@@ -191,7 +191,7 @@ http://localhost:8080/create-invoice
 
 **URL:**
 ```
-https://your-domain.railway.app/create-invoice
+https://quote.atap.solar/create-invoice
 ```
 
 **Steps:**
@@ -206,7 +206,7 @@ https://your-domain.railway.app/create-invoice
 
 **URL Format:**
 ```
-https://your-domain.railway.app/create-invoice?package_id={id}&discount_given={amount}
+https://quote.atap.solar/create-invoice?package_id={id}&discount_given={amount}
 ```
 
 **Steps:**

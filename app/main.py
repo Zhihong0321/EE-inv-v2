@@ -44,6 +44,7 @@ async def initialize_db():
             import app.models.template
             import app.models.package
             import app.models.voucher
+            import app.models.tag_registry
             import app.models.product
             import app.models.brand
             import app.models.package_item
@@ -1675,6 +1676,7 @@ async def admin_users():
                                         <span id="sort-registration_date" class="sort-indicator"></span>
                                     </div>
                                 </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -1737,6 +1739,29 @@ async def admin_users():
             </div>
         </div>
 
+        <!-- Modal for Tag Management -->
+        <div id="tags-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 id="tags-modal-title" class="text-xl font-bold">Manage Tags</h2>
+                        <button onclick="closeTagsModal()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <div id="tags-modal-content" class="space-y-6">
+                        <!-- Tags will be loaded here -->
+                    </div>
+
+                    <div class="flex justify-end pt-4 space-x-3 mt-6 border-t">
+                        <button onclick="closeTagsModal()" class="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
+                        <button onclick="saveUserTags()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Tags</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
             const API_BASE = '/api/v1';
             let currentPage = 0;
@@ -1745,6 +1770,17 @@ async def admin_users():
             let searchTerm = '';
             let currentSortBy = 'registration_date';
             let currentSortOrder = 'desc';
+
+            let tagRegistry = { app: [], function: [], department: [] };
+            let token = null;
+
+            // Get token from localStorage or cookie
+            function getToken() {
+                if (!token) {
+                    token = localStorage.getItem('access_token');
+                }
+                return token;
+            }
 
             function formatDate(dateString) {
                 if (!dateString) return 'N/A';
@@ -1756,6 +1792,56 @@ async def admin_users():
                     hour: '2-digit',
                     minute: '2-digit'
                 });
+            }
+
+            function renderTags(tags) {
+                if (!tags || tags.length === 0) {
+                    return '<span class="text-xs text-gray-400">No tags</span>';
+                }
+                
+                // Group tags by category (we'll match against registry)
+                const tagMap = {};
+                tags.forEach(tag => {
+                    // Find tag in registry to get category
+                    let category = 'function'; // default
+                    for (const cat in tagRegistry) {
+                        if (tagRegistry[cat].some(t => t.tag === tag)) {
+                            category = cat;
+                            break;
+                        }
+                    }
+                    if (!tagMap[category]) tagMap[category] = [];
+                    tagMap[category].push(tag);
+                });
+                
+                let html = '';
+                const colors = {
+                    app: 'bg-blue-100 text-blue-800',
+                    function: 'bg-green-100 text-green-800',
+                    department: 'bg-purple-100 text-purple-800'
+                };
+                
+                Object.keys(tagMap).forEach(cat => {
+                    tagMap[cat].forEach(tag => {
+                        html += `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colors[cat] || 'bg-gray-100 text-gray-800'}">${tag}</span>`;
+                    });
+                });
+                
+                return html || '<span class="text-xs text-gray-400">No tags</span>';
+            }
+
+            async function loadTagRegistry() {
+                try {
+                    const response = await fetch(`${API_BASE}/users/tags/registry`, {
+                        headers: { 'Authorization': `Bearer ${getToken()}` }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        tagRegistry = data.tags || { app: [], function: [], department: [] };
+                    }
+                } catch (e) {
+                    console.error('Failed to load tag registry:', e);
+                }
             }
 
             function updateSortIndicators() {
@@ -1810,7 +1896,7 @@ async def admin_users():
                     }
 
                     const response = await fetch(`${API_BASE}/users?${params}`, {
-                        credentials: 'include'
+                        headers: { 'Authorization': `Bearer ${getToken()}` }
                     });
                     
                     if (!response.ok) {
@@ -1840,13 +1926,18 @@ async def admin_users():
                 tbody.innerHTML = '';
 
                 if (users.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No users found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No users found</td></tr>';
                     return;
                 }
 
                 users.forEach(user => {
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50';
+                    
+                    // Render tags grouped by category
+                    const tags = user.access_level || [];
+                    const tagsHtml = renderTags(tags);
+                    
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">${user.name || 'N/A'}</div>
@@ -1860,10 +1951,19 @@ async def admin_users():
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-500">${formatDate(user.registration_date)}</div>
                         </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1 max-w-xs">
+                                ${tagsHtml}
+                            </div>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick='manageTags(${JSON.stringify(user).replace(/'/g, "&#39;")})' 
+                                class="text-indigo-600 hover:text-indigo-900 mr-3" title="Manage Tags">
+                                <i class="fas fa-tags"></i>
+                            </button>
                             <button onclick='editUser(${JSON.stringify(user).replace(/'/g, "&#39;")})' 
-                                class="text-blue-600 hover:text-blue-900 mr-3">
-                                <i class="fas fa-edit"></i> Edit
+                                class="text-blue-600 hover:text-blue-900" title="Edit User">
+                                <i class="fas fa-edit"></i>
                             </button>
                         </td>
                     `;
@@ -1953,6 +2053,170 @@ async def admin_users():
                 }
             }
 
+            let currentUserForTags = null;
+
+            function manageTags(user) {
+                currentUserForTags = user;
+                openTagsModal();
+            }
+
+            function openTagsModal() {
+                document.getElementById('tags-modal').classList.remove('hidden');
+                document.getElementById('tags-modal').classList.add('flex');
+                document.getElementById('tags-modal-title').textContent = `Manage Tags - ${currentUserForTags.name || 'User'}`;
+                renderTagSelector();
+            }
+
+            function closeTagsModal() {
+                document.getElementById('tags-modal').classList.add('hidden');
+                document.getElementById('tags-modal').classList.remove('flex');
+                currentUserForTags = null;
+            }
+
+            function renderTagSelector() {
+                const content = document.getElementById('tags-modal-content');
+                const currentTags = currentUserForTags.access_level || [];
+                
+                let html = '<div class="mb-4"><p class="text-sm text-gray-600 mb-4">Select tags to assign to this user:</p></div>';
+                
+                // Render tags by category
+                ['app', 'function', 'department'].forEach(category => {
+                    const tags = tagRegistry[category] || [];
+                    if (tags.length === 0) return;
+                    
+                    html += `<div class="mb-6">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3 capitalize">${category} Tags</h3>
+                        <div class="flex flex-wrap gap-2">`;
+                    
+                    tags.forEach(tag => {
+                        const isChecked = currentTags.includes(tag.tag);
+                        const colors = {
+                            app: 'border-blue-300 bg-blue-50',
+                            function: 'border-green-300 bg-green-50',
+                            department: 'border-purple-300 bg-purple-50'
+                        };
+                        html += `
+                            <label class="inline-flex items-center px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 ${colors[category]} ${isChecked ? 'ring-2 ring-indigo-500' : ''}">
+                                <input type="checkbox" value="${tag.tag}" class="tag-checkbox mr-2" ${isChecked ? 'checked' : ''}>
+                                <span class="text-sm">${tag.tag}</span>
+                            </label>
+                        `;
+                    });
+                    
+                    html += '</div></div>';
+                });
+                
+                content.innerHTML = html;
+            }
+
+            async function saveUserTags() {
+                const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
+                const selectedTags = Array.from(checkboxes).map(cb => cb.value);
+                
+                try {
+                    const response = await fetch(`${API_BASE}/users/${currentUserForTags.user_bubble_id}/tags`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: JSON.stringify({ tags: selectedTags })
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to save tags');
+                    }
+
+                    closeTagsModal();
+                    loadUsers(); // Reload to show updated tags
+                } catch (err) {
+                    alert(err.message);
+                }
+            }
+
+            let currentUserForTags = null;
+
+            function manageTags(user) {
+                currentUserForTags = user;
+                openTagsModal();
+            }
+
+            function openTagsModal() {
+                document.getElementById('tags-modal').classList.remove('hidden');
+                document.getElementById('tags-modal').classList.add('flex');
+                document.getElementById('tags-modal-title').textContent = `Manage Tags - ${currentUserForTags.name || 'User'}`;
+                renderTagSelector();
+            }
+
+            function closeTagsModal() {
+                document.getElementById('tags-modal').classList.add('hidden');
+                document.getElementById('tags-modal').classList.remove('flex');
+                currentUserForTags = null;
+            }
+
+            function renderTagSelector() {
+                const content = document.getElementById('tags-modal-content');
+                const currentTags = currentUserForTags.access_level || [];
+                
+                let html = '<div class="mb-4"><p class="text-sm text-gray-600 mb-4">Select tags to assign to this user:</p></div>';
+                
+                // Render tags by category
+                ['app', 'function', 'department'].forEach(category => {
+                    const tags = tagRegistry[category] || [];
+                    if (tags.length === 0) return;
+                    
+                    html += `<div class="mb-6">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3 capitalize">${category} Tags</h3>
+                        <div class="flex flex-wrap gap-2">`;
+                    
+                    tags.forEach(tag => {
+                        const isChecked = currentTags.includes(tag.tag);
+                        const colors = {
+                            app: 'border-blue-300 bg-blue-50',
+                            function: 'border-green-300 bg-green-50',
+                            department: 'border-purple-300 bg-purple-50'
+                        };
+                        html += `
+                            <label class="inline-flex items-center px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 ${colors[category]} ${isChecked ? 'ring-2 ring-indigo-500' : ''}">
+                                <input type="checkbox" value="${tag.tag}" class="tag-checkbox mr-2" ${isChecked ? 'checked' : ''}>
+                                <span class="text-sm">${tag.tag}</span>
+                            </label>
+                        `;
+                    });
+                    
+                    html += '</div></div>';
+                });
+                
+                content.innerHTML = html;
+            }
+
+            async function saveUserTags() {
+                const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
+                const selectedTags = Array.from(checkboxes).map(cb => cb.value);
+                
+                try {
+                    const response = await fetch(`${API_BASE}/users/${currentUserForTags.user_bubble_id}/tags`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: JSON.stringify({ tags: selectedTags })
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to save tags');
+                    }
+
+                    closeTagsModal();
+                    loadUsers(); // Reload to show updated tags
+                } catch (err) {
+                    alert(err.message);
+                }
+            }
+
             function logout() {
                 window.location.href = 'https://auth.atap.solar/auth/logout';
             }
@@ -1960,8 +2224,10 @@ async def admin_users():
             // Initialize sort indicators
             updateSortIndicators();
             
-            // Load users on page load
-            loadUsers();
+            // Load tag registry and users on page load
+            loadTagRegistry().then(() => {
+                loadUsers();
+            });
         </script>
     </body>
     </html>

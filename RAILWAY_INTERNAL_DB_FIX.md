@@ -89,7 +89,7 @@ Health check uses internal connection only
 ### Check Health Endpoint
 
 ```bash
-curl https://your-app.railway.app/api/v1/health
+curl https://quote.atap.solar/api/v1/health
 ```
 
 **Expected Response:**
@@ -104,7 +104,7 @@ curl https://your-app.railway.app/api/v1/health
 ### Check Connection Info Endpoint (New)
 
 ```bash
-curl https://your-app.railway.app/api/v1/db-info
+curl https://quote.atap.solar/api/v1/db-info
 ```
 
 **Expected Response:**
@@ -204,7 +204,7 @@ After pushing to GitHub, Railway will automatically:
 
 **Command:**
 ```bash
-curl https://your-app.railway.app/api/v1/health
+curl https://quote.atap.solar/api/v1/health
 ```
 
 ### Database Connection Error

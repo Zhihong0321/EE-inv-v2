@@ -519,7 +519,9 @@ def generate_share_link(
             detail="Invoice not found"
         )
 
-    share_url = f"{settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:8000'}/invoice/view/{invoice.share_token}"
+    # Build share URL using request base URL
+    base_url = str(request.base_url).rstrip("/")
+    share_url = f"{base_url}/view/{invoice.share_token}"
 
     return GenerateShareLinkResponse(
         success=True,

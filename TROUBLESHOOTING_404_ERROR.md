@@ -8,7 +8,7 @@
 
 Accessing this URL returns "NOT FOUND":
 ```
-https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1741567007812x529976087464378400&customer_name=Sample+Quotation&panel_qty=18&panel_rating=620W
+https://quote.atap.solar/create-invoice?package_id=1741567007812x529976087464378400&customer_name=Sample+Quotation&panel_qty=18&panel_rating=620W
 ```
 
 ---
@@ -62,7 +62,7 @@ Added try-catch blocks to show helpful error messages if template rendering fail
 
 **Test URL:**
 ```
-https://ee-inv-v2-production.up.railway.app/test-create-invoice
+https://quote.atap.solar/test-create-invoice
 ```
 
 **Expected:** Should show "Test Route Working!" message
@@ -149,7 +149,7 @@ https://ee-inv-v2-production.up.railway.app/test-create-invoice
 
 3. **Test the Route:**
    ```
-   https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1741567007812x529976087464378400
+   https://quote.atap.solar/create-invoice?package_id=1741567007812x529976087464378400
    ```
 
 4. **If Still Failing:**

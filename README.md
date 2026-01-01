@@ -38,7 +38,7 @@ See `DEPLOYMENT_INSTRUCTIONS.md` for step-by-step deployment guide.
    - Deploy!
 
 3. **Access Application:**
-   - Your app URL: `https://ee-invoicing-v2-production-xxxx.railway.app`
+   - Your app URL: `https://quote.atap.solar`
    - API Docs: `/docs`
    - Admin Dashboard: `/admin/`
 

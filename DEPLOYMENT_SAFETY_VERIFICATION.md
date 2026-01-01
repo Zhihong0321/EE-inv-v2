@@ -254,13 +254,13 @@ RAILWAY_ENVIRONMENT=production
 
 2. Check health endpoint:
    ```bash
-   curl https://your-app.railway.app/api/v1/health
+   curl https://quote.atap.solar/api/v1/health
    # Should show: "database": "connected"
    ```
 
 3. Check connection info (if endpoint exists):
    ```bash
-   curl https://your-app.railway.app/api/v1/db-info
+   curl https://quote.atap.solar/api/v1/db-info
    # Should show: "uses_internal_connection": true
    ```
 

@@ -25,6 +25,7 @@ class UserRepository:
                 u.bubble_id as user_bubble_id,
                 u.created_date as registration_date,
                 u.linked_agent_profile,
+                u.access_level as access_level,
                 a.bubble_id as agent_bubble_id,
                 a.name as name,
                 a.contact as whatsapp_number,
@@ -89,6 +90,7 @@ class UserRepository:
                 'email': row.email,
                 'registration_date': row.registration_date,
                 'linked_agent_profile': row.linked_agent_profile,
+                'access_level': list(row.access_level) if row.access_level else [],
             })
         
         return users, total
@@ -100,6 +102,7 @@ class UserRepository:
                 u.bubble_id as user_bubble_id,
                 u.created_date as registration_date,
                 u.linked_agent_profile,
+                u.access_level as access_level,
                 a.bubble_id as agent_bubble_id,
                 a.name as name,
                 a.contact as whatsapp_number,
@@ -123,6 +126,7 @@ class UserRepository:
             'email': row.email,
             'registration_date': row.registration_date,
             'linked_agent_profile': row.linked_agent_profile,
+            'access_level': list(row.access_level) if row.access_level else [],
         }
 
     def update_user(
@@ -132,6 +136,7 @@ class UserRepository:
         whatsapp_number: Optional[str] = None,
         email: Optional[str] = None,
         linked_agent_profile: Optional[str] = None,
+        access_level: Optional[List[str]] = None,
     ) -> Optional[dict]:
         """Update user and/or agent profile"""
         # First, get the current user
@@ -139,18 +144,26 @@ class UserRepository:
         if not user:
             return None
         
-        # If linked_agent_profile is provided, update it in user table
+        # Build update fields dynamically
+        update_fields = []
+        update_params = {"user_bubble_id": user_bubble_id}
+        
         if linked_agent_profile is not None:
-            update_user_query = text("""
+            update_fields.append("linked_agent_profile = :linked_agent_profile")
+            update_params["linked_agent_profile"] = linked_agent_profile
+        
+        if access_level is not None:
+            update_fields.append("access_level = :access_level")
+            update_params["access_level"] = access_level
+        
+        if update_fields:
+            update_fields.append("updated_at = NOW()")
+            update_user_query = text(f"""
                 UPDATE "user"
-                SET linked_agent_profile = :linked_agent_profile,
-                    updated_at = NOW()
+                SET {', '.join(update_fields)}
                 WHERE bubble_id = :user_bubble_id
             """)
-            self.db.execute(update_user_query, {
-                "linked_agent_profile": linked_agent_profile,
-                "user_bubble_id": user_bubble_id
-            })
+            self.db.execute(update_user_query, update_params)
         
         # Update agent profile if agent_bubble_id exists or if we're creating/updating agent
         agent_bubble_id = linked_agent_profile or user.get('linked_agent_profile')
@@ -199,6 +212,33 @@ class UserRepository:
                     "contact": whatsapp_number or "",
                     "email": email or ""
                 })
+        
+        self.db.commit()
+        
+        # Return updated user
+        return self.get_by_id(user_bubble_id)
+
+    def update_user_tags(
+        self,
+        user_bubble_id: str,
+        tags: List[str],
+    ) -> Optional[dict]:
+        """Update user access_level tags"""
+        user = self.get_by_id(user_bubble_id)
+        if not user:
+            return None
+        
+        # Update access_level in user table
+        update_query = text("""
+            UPDATE "user"
+            SET access_level = :access_level,
+                updated_at = NOW()
+            WHERE bubble_id = :user_bubble_id
+        """)
+        self.db.execute(update_query, {
+            "access_level": tags,
+            "user_bubble_id": user_bubble_id
+        })
         
         self.db.commit()
         

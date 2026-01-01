@@ -7,7 +7,7 @@
 ## Base URL
 
 ```
-https://your-domain.com/create-invoice
+https://quote.atap.solar/create-invoice
 ```
 
 ---
@@ -46,27 +46,27 @@ https://your-domain.com/create-invoice
 
 ### Minimal (Package Only)
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050
 ```
 
 ### With Discount (RM 500)
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
 ```
 
 ### With Discount (10%)
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&discount_given=10%25
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050&discount_given=10%25
 ```
 
 ### With Customer
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&customer_name=John%20Doe&customer_phone=60123456789
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050&customer_name=John%20Doe&customer_phone=60123456789
 ```
 
 ### Complete Example
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=500%2010%25&customer_name=John%20Doe&customer_phone=60123456789&customer_address=123%20Main%20St
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=500%2010%25&customer_name=John%20Doe&customer_phone=60123456789&customer_address=123%20Main%20St
 ```
 
 ---
@@ -92,7 +92,7 @@ const params = new URLSearchParams({
     discount_given: '500',
     customer_name: 'John Doe'
 });
-const url = `https://your-domain.com/create-invoice?${params}`;
+const url = `https://quote.atap.solar/create-invoice?${params}`;
 ```
 
 ### Python
@@ -104,7 +104,7 @@ params = {
     'discount_given': '500',
     'customer_name': 'John Doe'
 }
-url = f"https://your-domain.com/create-invoice?{urlencode(params)}"
+url = f"https://quote.atap.solar/create-invoice?{urlencode(params)}"
 ```
 
 ---

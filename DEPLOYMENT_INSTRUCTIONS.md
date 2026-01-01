@@ -35,7 +35,7 @@ Add these variables:
 | Variable | Value | Description |
 |----------|---------|-------------|
 | JWT_SECRET_KEY | Click "Generate" | JWT signing secret |
-| WHATSAPP_API_URL | `https://whatsapp-api-server-production-c15f.up.railway.app/api` | Your WhatsApp API |
+| WHATSAPP_API_URL | `https://quote.atap.solar/api` | Your WhatsApp API |
 | OTP_EXPIRE_SECONDS | `1800` | 30 minutes |
 | OTP_LENGTH | `6` | 6-digit OTP |
 | INVOICE_NUMBER_PREFIX | `INV` | Invoice prefix |
@@ -53,7 +53,7 @@ Wait 2-3 minutes for deployment.
 
 ### 6. Access Application
 
-Your app URL will be: `https://ee-invoicing-v2-production-xxxx.railway.app`
+Your app URL will be: `https://quote.atap.solar`
 
 ## First-Time Setup
 
@@ -62,7 +62,7 @@ Your app URL will be: `https://ee-invoicing-v2-production-xxxx.railway.app`
 After deployment:
 
 **Option A: Login via WhatsApp**
-1. Visit `https://your-app.railway.app/admin/login`
+1. Visit `https://quote.atap.solar/admin/login`
 2. Enter your WhatsApp number
 3. Enter OTP received on WhatsApp
 4. Login successfully
@@ -105,11 +105,11 @@ After deploying and setting up admin user:
 
 ```bash
 # Get migration status
-curl https://your-app.railway.app/api/v1/migration/status \
+curl https://quote.atap.solar/api/v1/migration/status \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
 # Migrate 100 invoices
-curl -X POST https://your-app.railway.app/api/v1/migration/migrate-old-invoices?limit=100 \
+curl -X POST https://quote.atap.solar/api/v1/migration/migrate-old-invoices?limit=100 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -127,8 +127,8 @@ Repeat migration until all old invoices are processed.
 ## API Documentation
 
 After deployment, visit:
-- **Swagger UI:** `https://your-app.railway.app/docs`
-- **ReDoc:** `https://your-app.railway.app/redoc`
+- **Swagger UI:** `https://quote.atap.solar/docs`
+- **ReDoc:** `https://quote.atap.solar/redoc`
 
 ## Quick API Test
 
@@ -136,12 +136,12 @@ After deployment, visit:
 
 ```bash
 # Step 1: Send OTP
-curl -X POST https://your-app.railway.app/api/v1/auth/whatsapp/send-otp \
+curl -X POST https://quote.atap.solar/api/v1/auth/whatsapp/send-otp \
   -H "Content-Type: application/json" \
   -d '{"whatsapp_number": "60123456789"}'
 
 # Step 2: Verify OTP (replace with actual OTP)
-curl -X POST https://your-app.railway.app/api/v1/auth/whatsapp/verify \
+curl -X POST https://quote.atap.solar/api/v1/auth/whatsapp/verify \
   -H "Content-Type: application/json" \
   -d '{"whatsapp_number": "60123456789", "otp_code": "123456"}'
 
@@ -151,7 +151,7 @@ curl -X POST https://your-app.railway.app/api/v1/auth/whatsapp/verify \
 ### Test Create Invoice
 
 ```bash
-curl -X POST https://your-app.railway.app/api/v1/invoices \
+curl -X POST https://quote.atap.solar/api/v1/invoices \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
@@ -168,7 +168,7 @@ curl -X POST https://your-app.railway.app/api/v1/invoices \
 ### Test Migration Status
 
 ```bash
-curl https://your-app.railway.app/api/v1/migration/status \
+curl https://quote.atap.solar/api/v1/migration/status \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

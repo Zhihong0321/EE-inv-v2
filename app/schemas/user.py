@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -12,6 +12,7 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     registration_date: Optional[datetime] = None
     linked_agent_profile: Optional[str] = None
+    access_level: Optional[List[str]] = []  # Tags/permissions
     
     class Config:
         populate_by_name = True
@@ -32,5 +33,25 @@ class UserUpdate(BaseModel):
     whatsapp_number: Optional[str] = None
     email: Optional[str] = None
     linked_agent_profile: Optional[str] = None
+    access_level: Optional[List[str]] = None  # Tags/permissions
+
+
+class UserTagsUpdate(BaseModel):
+    """Schema for updating user tags only"""
+    tags: List[str]  # List of tag strings
+
+
+class TagRegistryResponse(BaseModel):
+    """Tag registry response schema"""
+    tag: str
+    category: str
+    description: Optional[str] = None
+
+
+class TagRegistryCreate(BaseModel):
+    """Schema for creating a tag in registry"""
+    tag: str
+    category: str  # "app", "function", or "department"
+    description: Optional[str] = None
 
 
