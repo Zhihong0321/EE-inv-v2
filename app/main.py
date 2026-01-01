@@ -157,66 +157,31 @@ async def auth_hub_middleware(request: Request, call_next):
     if not is_html_request:
         return await call_next(request)
     
-    # Check for auth_token cookie
+    # Following Auth Hub docs EXACTLY:
+    # 1. Get Token from Cookie
     auth_token = request.cookies.get("auth_token")
     
-    # CRITICAL: Check if we're coming from Auth Hub redirect - MULTIPLE CHECKS
-    referer = request.headers.get("referer", "").lower()
-    is_from_auth_hub_referer = "auth.atap.solar" in referer
+    if not auth_token:
+        # No token - redirect to Auth Hub with Return URL
+        from app.middleware.auth import redirect_to_auth_hub
+        return redirect_to_auth_hub(request)
     
-    # Check if referer is from same domain (internal navigation)
-    # Extract host from request - handle both quote.atap.solar and any subdomain
-    host = request.headers.get("host", "").lower()
-    # Check if referer contains our domain (for internal navigation)
-    is_internal_navigation = host and (host in referer or referer.startswith(f"https://{host}") or referer.startswith(f"http://{host}"))
-    
-    # Check query parameters
-    query_str = str(request.url.query).lower()
-    has_auth_query_params = any(param in query_str for param in ["return_to", "code", "token", "auth", "state"])
-    
-    # Check URL itself
-    url_str = str(request.url).lower()
-    url_has_auth_hub = "auth.atap.solar" in url_str
-    
-    # Check for session flag (if we set one)
-    session_flag = request.cookies.get("_auth_redirect_flag")
-    
-    # If ANY indicator shows we came from Auth Hub, ALWAYS allow through
-    # Frontend will handle auth check - don't redirect again!
-    if is_from_auth_hub_referer or has_auth_query_params or url_has_auth_hub or session_flag:
-        # Clear the flag cookie if it exists
-        response = await call_next(request)
-        if session_flag:
-            response.delete_cookie("_auth_redirect_flag", path="/")
-        return response
-    
-    # CRITICAL FIX: If internal navigation (same domain), allow through
-    # User is already logged in, just navigating between pages
-    # Frontend will handle auth check via API calls
-    if is_internal_navigation:
-        return await call_next(request)
-    
-    # If we have a cookie, verify it's valid
-    if auth_token:
-        try:
-            from app.utils.security import decode_access_token
-            payload = decode_access_token(auth_token)
-            if payload:
-                # Token is valid, allow request through
-                return await call_next(request)
-        except Exception:
-            # Token invalid - but if internal navigation, still allow (frontend handles it)
-            if is_internal_navigation:
-                return await call_next(request)
-            # Otherwise redirect below
-    
-    # No cookie and not from Auth Hub and not internal navigation - redirect to Auth Hub
-    # Set a flag cookie so we know we redirected
-    from app.middleware.auth import redirect_to_auth_hub
-    response = redirect_to_auth_hub(request)
-    # Set a temporary flag cookie (expires in 60 seconds)
-    response.set_cookie("_auth_redirect_flag", "1", max_age=60, path="/", httponly=True)
-    return response
+    try:
+        # 2. Verify Token
+        from app.utils.security import decode_access_token
+        payload = decode_access_token(auth_token)
+        
+        if payload:
+            # Token is valid, allow request through
+            return await call_next(request)
+        else:
+            # Token invalid - redirect to Auth Hub
+            from app.middleware.auth import redirect_to_auth_hub
+            return redirect_to_auth_hub(request)
+    except Exception:
+        # Token invalid or expired - redirect to Auth Hub
+        from app.middleware.auth import redirect_to_auth_hub
+        return redirect_to_auth_hub(request)
 
 # Request logging middleware - LOG EVERY REQUEST
 @app.middleware("http")
