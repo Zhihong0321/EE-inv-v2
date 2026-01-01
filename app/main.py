@@ -164,6 +164,11 @@ async def auth_hub_middleware(request: Request, call_next):
     referer = request.headers.get("referer", "").lower()
     is_from_auth_hub_referer = "auth.atap.solar" in referer
     
+    # Check if referer is from same domain (internal navigation)
+    # Extract host from request
+    host = request.headers.get("host", "").lower()
+    is_internal_navigation = host and host in referer
+    
     # Check query parameters
     query_str = str(request.url.query).lower()
     has_auth_query_params = any(param in query_str for param in ["return_to", "code", "token", "auth", "state"])
@@ -184,6 +189,12 @@ async def auth_hub_middleware(request: Request, call_next):
             response.delete_cookie("_auth_redirect_flag", path="/")
         return response
     
+    # CRITICAL FIX: If internal navigation (same domain), allow through
+    # User is already logged in, just navigating between pages
+    # Frontend will handle auth check via API calls
+    if is_internal_navigation:
+        return await call_next(request)
+    
     # If we have a cookie, verify it's valid
     if auth_token:
         try:
@@ -193,10 +204,12 @@ async def auth_hub_middleware(request: Request, call_next):
                 # Token is valid, allow request through
                 return await call_next(request)
         except Exception:
-            # Token invalid - will redirect below
-            pass
+            # Token invalid - but if internal navigation, still allow (frontend handles it)
+            if is_internal_navigation:
+                return await call_next(request)
+            # Otherwise redirect below
     
-    # No cookie and not from Auth Hub - redirect to Auth Hub
+    # No cookie and not from Auth Hub and not internal navigation - redirect to Auth Hub
     # Set a flag cookie so we know we redirected
     from app.middleware.auth import redirect_to_auth_hub
     response = redirect_to_auth_hub(request)
