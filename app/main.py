@@ -161,17 +161,17 @@ async def auth_hub_middleware(request: Request, call_next):
     # 1. Get Token from Cookie
     auth_token = request.cookies.get("auth_token")
     
-    # Debug logging
+    # Debug logging - use ERROR level so it shows in Railway logs
     import logging
     logger = logging.getLogger(__name__)
     
     if not auth_token:
         # No token - redirect to Auth Hub with Return URL
-        logger.info(f"Auth middleware [{path}]: No auth_token cookie found")
+        logger.error(f"🔐 Auth middleware [{path}]: No auth_token cookie found - redirecting to Auth Hub")
         from app.middleware.auth import redirect_to_auth_hub
         return redirect_to_auth_hub(request)
     
-    logger.debug(f"Auth middleware [{path}]: Found cookie, length={len(auth_token)}")
+    logger.error(f"🔐 Auth middleware [{path}]: Found cookie, length={len(auth_token)}")
     
     try:
         # 2. Verify Token
@@ -180,16 +180,16 @@ async def auth_hub_middleware(request: Request, call_next):
         
         if payload:
             # Token is valid, allow request through
-            logger.debug(f"Auth middleware [{path}]: Token verified successfully")
+            logger.error(f"🔐 Auth middleware [{path}]: ✅ Token verified successfully, userId={payload.get('userId') or payload.get('sub')}")
             return await call_next(request)
         else:
             # Token invalid - redirect to Auth Hub
-            logger.warning(f"Auth middleware [{path}]: Token decode returned None - redirecting")
+            logger.error(f"🔐 Auth middleware [{path}]: ❌ Token decode returned None - redirecting to Auth Hub")
             from app.middleware.auth import redirect_to_auth_hub
             return redirect_to_auth_hub(request)
     except Exception as e:
         # Token invalid, expired, or JWT_SECRET_KEY mismatch - redirect to Auth Hub
-        logger.error(f"Auth middleware [{path}]: Token verification exception: {str(e)}")
+        logger.error(f"🔐 Auth middleware [{path}]: ❌ Token verification exception: {str(e)}")
         from app.middleware.auth import redirect_to_auth_hub
         return redirect_to_auth_hub(request)
 
