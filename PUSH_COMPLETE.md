@@ -87,12 +87,12 @@ The file `app/repositories/auth_repo.py` has been excluded from the git reposito
 After first login, you need to set admin role:
 1. Go to Railway → PostgreSQL service
 2. Click "Query" tab
-3. Run this SQL:
+3. Run this SQL (replace with your user ID):
    ```sql
-   UPDATE auth_user
-   SET role = 'admin',
-       app_permissions = ARRAY['all']
-   WHERE whatsapp_number = 'YOUR_PHONE_NUMBER';
+   UPDATE "user"
+   SET access_level = ARRAY['admin'],
+       user_signed_up = true
+   WHERE id = 1;
    ```
 
 **4. Setup Default Template**

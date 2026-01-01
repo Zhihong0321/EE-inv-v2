@@ -28,12 +28,12 @@ class LoginResponse(BaseModel):
 
 class UserResponse(BaseModel):
     user_id: str
-    whatsapp_number: str
+    whatsapp_number: Optional[str] = None
     name: Optional[str] = None
     role: str
     active: bool
     app_permissions: List[str] = []
-    created_at: datetime
+    created_at: Optional[datetime] = None
     last_login_at: Optional[datetime] = None
 
 

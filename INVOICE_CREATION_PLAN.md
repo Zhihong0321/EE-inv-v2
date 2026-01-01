@@ -23,17 +23,17 @@ Create a new invoice creation flow where an external microservice (ERP) generate
 
 | Table | Key Fields | Purpose |
 |-------|-----------|---------|
-| `auth_user` | `user_id`, `whatsapp_number`, `name`, `role` | WhatsApp OTP login |
+| `user` | `id`, `whatsapp_number`, `name`, `role` | Shared user table |
 | `agent` | `bubble_id`, `name`, `contact`, `email`, `address` | Legacy agent profiles |
-| `user` (legacy) | `linked_agent_profile`, `agent_code` | Links to agent |
 | `invoice_new` | `bubble_id`, `created_by`, `customer_id` | Invoice records |
 | `package` | `bubble_id`, `panel_qty`, `panel`, `price`, `type` | Solar packages |
+| `voucher` | `code`, `discount_value`, `active` | Discount vouchers |
 
 #### Auth/User Findings
-- ✅ `auth_user` table has `whatsapp_number` field for mobile-based authentication
+- ✅ `user` table stores user information from Auth Hub
 - ✅ `agent` table has `contact` field for phone/mobile
-- ✅ `user` (legacy) has `linked_agent_profile` linking to agent
-- Current auth: WhatsApp OTP → JWT token
+- ✅ `user` has `linked_agent_profile` linking to agent
+- Current auth: Central Auth Hub → JWT token (cookie)
 
 #### Sample Data from Test Database
 
@@ -79,7 +79,7 @@ ID: 1694841837042x277767932428681200 | Name: GAN LAI SOON | Contact: 0127299201
 
 ### Required Schema Updates
 **NONE** - Existing schema supports all requirements:
-- `invoice_new.created_by` links to `auth_user.user_id` ✅
+- `invoice_new.created_by` links to `user.id` ✅
 - `package.panel_qty` stores panel quantity ✅
 - `package.panel` stores panel rating/info ✅
 - `invoice_new.customer_name_snapshot` can store "Sample Quotation" ✅
@@ -183,7 +183,7 @@ async def create_invoice_page(
     customer_phone: Optional[str] = Query(None, description="Customer phone (optional)"),
     customer_address: Optional[str] = Query(None, description="Customer address (optional)"),
     template_id: Optional[str] = Query(None, description="Template ID (optional)"),
-    current_user: Optional[AuthUser] = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -670,11 +670,10 @@ SELECT
     i.invoice_number,
     i.customer_name_snapshot,
     i.total_amount,
-    u.whatsapp_number,
-    u.name as agent_name,
+    u.id,
     i.created_at
 FROM invoice_new i
-JOIN auth_user u ON i.created_by = u.user_id
+JOIN "user" u ON i.created_by = u.id
 ORDER BY i.created_at DESC
 LIMIT 10;
 ```
@@ -740,8 +739,8 @@ https://your-domain.com/create-invoice?package_id=1703833647950x5728947076902420
 | Blank customer = demo quotation | ⏳ TO IMPLEMENT | Set `customer_name_snapshot = "Sample Quotation"` |
 | Generate preview link | ⏳ TO IMPLEMENT | Share token already exists in `create_on_the_fly()` |
 | Invoice linked to logged-in User | ⏳ TO IMPLEMENT | Use `created_by` field with `get_current_user()` |
-| Auth uses WhatsApp OTP | ✅ EXISTS | `/api/v1/auth/whatsapp/send-otp` and `/verify` |
-| User table has mobile/whatsapp_number | ✅ EXISTS | `auth_user.whatsapp_number` field |
+| Auth uses Central Auth Hub | ✅ EXISTS | Shared session cookie authentication |
+| User table available | ✅ EXISTS | Shared `user` table from production |
 | Test with Postgres DB | ⏳ TO IMPLEMENT | Use test DB connection for local testing |
 
 ### Mobile-First Criteria (⚡ TOP PRIORITY)
@@ -829,17 +828,15 @@ https://your-domain.com/create-invoice?package_id=1703833647950x5728947076902420
 
 ## Database Schema Confirmation
 
-### auth_user (Authentication)
+### user (Authentication)
 ```
-user_id (String, PK)
-whatsapp_number (String, Unique)
-whatsapp_formatted (String)
-name (String)
-role (String)
-active (Boolean)
-app_permissions (Array)
+id (Integer, PK)
+bubble_id (String, Unique)
+authentication (Text, JSON)
+access_level (Array)
+user_signed_up (Boolean)
 created_at (DateTime)
-last_login_at (DateTime)
+updated_at (DateTime)
 ```
 
 ### package (Solar Packages)
@@ -870,7 +867,7 @@ discount_fixed (Numeric)
 discount_percent (Numeric)
 total_amount (Numeric)
 status (String)
-created_by (String, FK to auth_user.user_id)  <-- LINKED TO USER
+created_by (Integer, FK to user.id)  <-- LINKED TO USER
 share_token (String)
 share_enabled (Boolean)
 created_at (DateTime)

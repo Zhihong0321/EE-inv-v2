@@ -70,12 +70,12 @@ After deployment:
 **Option B: Set Admin Role via Database**
 1. Go to Railway -> PostgreSQL service
 2. Click "Query" tab
-3. Run this SQL:
+3. Run this SQL (replace with your user ID or search by authentication):
 ```sql
-UPDATE auth_user
-SET role = 'admin',
-    app_permissions = ARRAY['all']
-WHERE whatsapp_number = 'YOUR_WHATSAPP_NUMBER';
+UPDATE "user"
+SET access_level = ARRAY['admin'],
+    user_signed_up = true
+WHERE id = 1; -- Or your user ID
 ```
 
 ### 2. Setup Default Template

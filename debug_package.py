@@ -25,11 +25,11 @@ for row in cur.fetchall():
     print(f"ID: {row[0]:<15} Name: {row[1]:<30} Contact: {row[2]:<15} Email: {row[3]}")
 
 print("\n" + "=" * 80)
-print("SAMPLE AUTH_USERS")
+print("SAMPLE USERS")
 print("=" * 80)
-cur.execute("SELECT user_id, whatsapp_number, name, role FROM auth_user LIMIT 5")
+cur.execute("SELECT id, bubble_id, access_level FROM \"user\" LIMIT 5")
 for row in cur.fetchall():
-    print(f"ID: {row[0]:<36} WhatsApp: {row[1]:<15} Name: {row[2]:<20} Role: {row[3]}")
+    print(f"ID: {row[0]:<15} Bubble: {row[1]:<30} Access: {row[2]}")
 
 cur.close()
 conn.close()
