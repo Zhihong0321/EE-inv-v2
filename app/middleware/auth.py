@@ -40,7 +40,12 @@ def redirect_to_auth_hub(request: Request) -> RedirectResponse:
 def get_user_id_from_payload(payload: dict) -> Optional[str]:
     """Extract user ID from token payload (supports both Auth Hub and legacy formats)"""
     # Auth Hub uses "userId", legacy uses "sub"
-    return payload.get("userId") or payload.get("sub")
+    # CRITICAL: user_id in database is VARCHAR, so convert to string
+    user_id = payload.get("userId") or payload.get("sub")
+    if user_id is not None:
+        # Convert to string - Auth Hub may send integer, but DB expects string
+        return str(user_id)
+    return None
 
 
 def get_current_user(
