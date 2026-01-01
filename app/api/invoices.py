@@ -274,6 +274,10 @@ def download_invoice_pdf(
         if template:
             template_data = template
     
+    # Fallback to default template if none found
+    if not template_data:
+        template_data = invoice_repo.get_default_template_data() or {}
+    
     # Convert invoice to dict for html_generator
     invoice_dict = invoice.to_dict()
     # Add items to invoice_dict

@@ -70,6 +70,15 @@ class InvoiceRepository:
         if not invoice_date:
             invoice_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+        # Find default template if none provided
+        if not template_id:
+            default_template = self.db.query(InvoiceTemplate).filter(
+                InvoiceTemplate.is_default == True,
+                InvoiceTemplate.active == True
+            ).first()
+            if default_template:
+                template_id = default_template.bubble_id
+
         # Create invoice
         invoice = InvoiceNew(
             bubble_id=bubble_id,
@@ -238,12 +247,23 @@ class InvoiceRepository:
                     voucher_amount = package.price * (Decimal(voucher.discount_percent) / Decimal(100))
 
         # 4. Handle Template and SST
+        if not template_id:
+            default_template = self.db.query(InvoiceTemplate).filter(
+                InvoiceTemplate.is_default == True,
+                InvoiceTemplate.active == True
+            ).first()
+            if default_template:
+                template_id = default_template.bubble_id
+
         sst_rate = Decimal(0)
         if apply_sst:
             sst_rate = Decimal(str(settings.DEFAULT_SST_RATE))
-            # Optional: if template has a specific rate, use it? 
-            # For now, just use default 8% if apply_sst is True.
-
+            # If we have a template, check if it overrides SST rate
+            if template_id:
+                template = self.db.query(InvoiceTemplate).filter(InvoiceTemplate.bubble_id == template_id).first()
+                if template and not template.apply_sst:
+                    sst_rate = Decimal(0)
+        
         # 5. Create Invoice
         bubble_id = f"inv_{secrets.token_hex(8)}"
         invoice_number = self._generate_invoice_number()
@@ -273,9 +293,6 @@ class InvoiceRepository:
             share_expires_at=datetime.now(timezone.utc) + timedelta(days=settings.SHARE_LINK_EXPIRY_DAYS)
         )
 
-        # Ensure template_id is set
-        invoice.template_id = template_id
-        
         self.db.add(invoice)
         self.db.flush()
 
@@ -400,6 +417,20 @@ class InvoiceRepository:
             text("SELECT * FROM invoice_template WHERE bubble_id = :id"),
             {"id": template_id}
         ).first()
+        return result._asdict() if result else None
+
+    def get_default_template_data(self) -> Optional[dict]:
+        """Get default template data"""
+        from sqlalchemy import text
+        result = self.db.execute(
+            text("SELECT * FROM invoice_template WHERE is_default = True AND active = True LIMIT 1")
+        ).first()
+        if not result:
+            # Fallback to any active template if no default set
+            result = self.db.execute(
+                text("SELECT * FROM invoice_template WHERE active = True LIMIT 1")
+            ).first()
+        
         return result._asdict() if result else None
 
     def get_by_share_token(self, share_token: str) -> Optional[InvoiceNew]:

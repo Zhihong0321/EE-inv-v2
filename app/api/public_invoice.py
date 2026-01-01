@@ -42,6 +42,10 @@ def view_shared_invoice(
             if template:
                 template_data = template
         
+        # Fallback to default template if none found
+        if not template_data:
+            template_data = invoice_repo.get_default_template_data() or {}
+        
         # Convert invoice to dict for html_generator
         invoice_dict = invoice.to_dict()
         # Add items to invoice_dict
@@ -93,6 +97,10 @@ def download_invoice_pdf(
         template = invoice_repo.get_template(invoice.template_id)
         if template:
             template_data = template
+    
+    # Fallback to default template if none found
+    if not template_data:
+        template_data = invoice_repo.get_default_template_data() or {}
     
     # Convert invoice to dict for html_generator
     invoice_dict = invoice.to_dict()
