@@ -122,6 +122,7 @@
             <!-- Invoice Details Form -->
             <form id="invoiceForm" class="space-y-4">
                 <input type="hidden" name="package_id" value="{{ package.bubble_id }}">
+                <input type="hidden" name="template_id" value="{{ template_id or '' }}">
                 <input type="hidden" id="packagePrice" value="{{ package.price }}">
                 <input type="hidden" id="packageName" value="{% if package.name %}{{ package.name }}{% elif package.invoice_desc %}{{ package.invoice_desc }}{% else %}Package {{ package.bubble_id }}{% endif %}">
                 
@@ -745,6 +746,7 @@
             // Prepare request data
             const requestData = {
                 package_id: data.package_id,
+                template_id: data.template_id || null,
                 customer_name: data.customer_name || null,
                 customer_phone: data.customer_phone || null,
                 customer_address: data.customer_address || null,

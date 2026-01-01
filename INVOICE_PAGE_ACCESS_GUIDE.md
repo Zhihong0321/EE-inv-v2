@@ -48,7 +48,7 @@ https://quote.atap.solar/create-invoice
 2. Click on your service
 3. Look for **"Generate Domain"** or **"Public Domain"** button
 4. Copy the generated domain
-5. Your full URL: `https://[your-domain].railway.app/create-invoice`
+5. Your full URL: `https://quote.atap.solar/create-invoice`
 
 **Example Production URLs:**
 ```
@@ -70,7 +70,7 @@ https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242
 
 **Example:**
 ```
-Browser → Address Bar → https://your-domain.com/create-invoice?package_id=xxx
+Browser → Address Bar → https://quote.atap.solar/create-invoice?package_id=xxx
 ```
 
 ---
@@ -78,9 +78,9 @@ Browser → Address Bar → https://your-domain.com/create-invoice?package_id=xx
 ### Method 2: From Admin Dashboard
 
 **If you have admin access:**
-1. Login to admin dashboard: `https://your-domain.com/admin/login`
+1. Login to admin dashboard: `https://quote.atap.solar/admin/login`
 2. After login, you can navigate to invoice creation
-3. Or directly access: `https://your-domain.com/create-invoice`
+3. Or directly access: `https://quote.atap.solar/create-invoice`
 
 ---
 
@@ -94,7 +94,7 @@ Browser → Address Bar → https://your-domain.com/create-invoice?package_id=xx
 
 **Example Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500&customer_name=John%20Doe
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500&customer_name=John%20Doe
 ```
 
 ---
@@ -108,7 +108,7 @@ https://your-domain.com/create-invoice?package_id=1703833647950x5728947076902420
 
 **Mobile URL Example:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050
 ```
 
 ---
@@ -134,7 +134,7 @@ http://localhost:8080/create-invoice
 
 **Production:**
 ```
-https://[your-railway-domain].railway.app/create-invoice
+https://quote.atap.solar/create-invoice
 ```
 
 ---
@@ -285,12 +285,12 @@ http://localhost:8080/create-invoice
 
 ### Production Access
 ```
-https://[your-domain].railway.app/create-invoice
+https://quote.atap.solar/create-invoice
 ```
 
 ### With Parameters (Example)
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
+https://quote.atap.solar/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
 ```
 
 ---
@@ -366,7 +366,7 @@ http://localhost:8080/create-invoice?package_id=1703833647950x572894707690242050
 | Environment | Base URL | Full Example |
 |-------------|----------|--------------|
 | **Localhost** | `http://localhost:8080/create-invoice` | `http://localhost:8080/create-invoice?package_id=xxx` |
-| **Production** | `https://[domain].railway.app/create-invoice` | `https://[domain].railway.app/create-invoice?package_id=xxx` |
+| **Production** | `https://quote.atap.solar/create-invoice` | `https://quote.atap.solar/create-invoice?package_id=xxx` |
 
 **To Find Production Domain:**
 1. Railway Dashboard → Your Project → Your Service → Settings → Public Domain
