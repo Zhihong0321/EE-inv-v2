@@ -160,7 +160,30 @@ async def auth_hub_middleware(request: Request, call_next):
     # Check for auth_token cookie
     auth_token = request.cookies.get("auth_token")
     
-    # If HTML request and no cookie, redirect to Auth Hub
+    # IMPORTANT: Check if we're coming from Auth Hub redirect
+    # This prevents infinite redirect loops when Auth Hub redirects back
+    referer = request.headers.get("referer", "")
+    is_from_auth_hub = "auth.atap.solar" in referer
+    
+    # If we have a cookie, verify it's valid before redirecting
+    if auth_token:
+        # Try to decode the token to verify it's valid
+        try:
+            from app.utils.security import decode_access_token
+            payload = decode_access_token(auth_token)
+            if payload:
+                # Token is valid, allow request through
+                return await call_next(request)
+        except Exception:
+            # Token invalid, but don't redirect if coming from Auth Hub
+            pass
+    
+    # If coming from Auth Hub, allow through (cookie might be set but not readable yet)
+    # Frontend will handle authentication check
+    if is_from_auth_hub:
+        return await call_next(request)
+    
+    # If HTML request and no valid cookie, redirect to Auth Hub
     if not auth_token:
         from app.middleware.auth import redirect_to_auth_hub
         return redirect_to_auth_hub(request)
