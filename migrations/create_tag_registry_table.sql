@@ -24,3 +24,5 @@ COMMENT ON COLUMN tag_registry.tag IS 'Unique tag string (e.g., "quote", "vouche
 COMMENT ON COLUMN tag_registry.category IS 'Tag category: app (application name), function (function name), or department (department name)';
 COMMENT ON COLUMN tag_registry.description IS 'Optional description of what this tag allows';
 
+
+

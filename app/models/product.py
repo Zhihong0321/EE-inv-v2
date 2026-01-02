@@ -33,3 +33,5 @@ class Product(Base):
     inverter_rating = Column(Integer)
 
 
+
+

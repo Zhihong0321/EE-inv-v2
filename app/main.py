@@ -2021,16 +2021,11 @@ async def admin_users():
                 const isEdit = !!userBubbleId;
                 
                 const payload = {
-                    name: document.getElementById('name').value,
-                    whatsapp_number: document.getElementById('whatsapp_number').value || null,
-                    email: document.getElementById('email').value || null,
-                    linked_agent_profile: document.getElementById('linked_agent_profile').value || null
+                    name: document.getElementById('name').value.trim() || null,
+                    whatsapp_number: document.getElementById('whatsapp_number').value.trim() || null,
+                    email: document.getElementById('email').value.trim() || null,
+                    linked_agent_profile: document.getElementById('linked_agent_profile').value.trim() || null
                 };
-
-                // Clean empty strings
-                Object.keys(payload).forEach(k => {
-                    if (payload[k] === '') payload[k] = null;
-                });
 
                 try {
                     const url = isEdit ? `${API_BASE}/users/${userBubbleId}` : `${API_BASE}/users`;

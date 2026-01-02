@@ -16,3 +16,5 @@ class Brand(Base):
     synced_at = Column(DateTime(timezone=True))
 
 
+
+

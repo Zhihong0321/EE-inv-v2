@@ -115,5 +115,3 @@ def generate_invoice_pdf(
     return pdf_bytes
 
 
-
-

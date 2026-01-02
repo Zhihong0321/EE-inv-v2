@@ -64,7 +64,7 @@ class UserRepository:
         
         # Get total count
         count_query = query.replace(
-            "SELECT \n                u.bubble_id as user_bubble_id,\n                u.created_date as registration_date,\n                u.linked_agent_profile,\n                a.bubble_id as agent_bubble_id,\n                a.name as name,\n                a.contact as whatsapp_number,\n                a.email as email\n            FROM",
+            "SELECT \n                u.bubble_id as user_bubble_id,\n                u.created_date as registration_date,\n                u.linked_agent_profile,\n                u.access_level as access_level,\n                a.bubble_id as agent_bubble_id,\n                a.name as name,\n                a.contact as whatsapp_number,\n                a.email as email\n            FROM",
             "SELECT COUNT(*) FROM"
         ).split("ORDER BY")[0]
         
@@ -165,30 +165,55 @@ class UserRepository:
             """)
             self.db.execute(update_user_query, update_params)
         
-        # Update agent profile if agent_bubble_id exists or if we're creating/updating agent
-        agent_bubble_id = linked_agent_profile or user.get('linked_agent_profile')
+        # Update agent profile - create if needed
+        # If we're updating name/whatsapp/email, we need an agent profile
+        needs_agent_update = name is not None or whatsapp_number is not None or email is not None
         
-        if agent_bubble_id:
+        if needs_agent_update:
+            agent_bubble_id = linked_agent_profile or user.get('linked_agent_profile')
+            
+            # If no agent_bubble_id exists, create a new one
+            if not agent_bubble_id:
+                import time
+                import random
+                timestamp = int(time.time() * 1000)
+                random_part = random.randint(100000000000000000, 999999999999999999)
+                agent_bubble_id = f"{timestamp}x{random_part}"
+                
+                # Update user's linked_agent_profile
+                update_user_link_query = text("""
+                    UPDATE "user"
+                    SET linked_agent_profile = :agent_bubble_id,
+                        updated_at = NOW()
+                    WHERE bubble_id = :user_bubble_id
+                """)
+                self.db.execute(update_user_link_query, {
+                    "agent_bubble_id": agent_bubble_id,
+                    "user_bubble_id": user_bubble_id
+                })
+            
             # Check if agent exists
             check_agent_query = text("SELECT bubble_id FROM agent WHERE bubble_id = :agent_bubble_id")
             agent_exists = self.db.execute(check_agent_query, {"agent_bubble_id": agent_bubble_id}).fetchone()
             
             if agent_exists:
                 # Update existing agent
+                # Use a flag to track if we need to update (including clearing fields with None)
                 update_fields = []
                 update_params = {"agent_bubble_id": agent_bubble_id}
                 
+                # Check if any field is being updated (including None to clear)
                 if name is not None:
                     update_fields.append("name = :name")
-                    update_params["name"] = name
+                    update_params["name"] = name if name else None
                 
                 if whatsapp_number is not None:
                     update_fields.append("contact = :contact")
-                    update_params["contact"] = whatsapp_number
+                    update_params["contact"] = whatsapp_number if whatsapp_number else None
                 
                 if email is not None:
                     update_fields.append("email = :email")
-                    update_params["email"] = email
+                    update_params["email"] = email if email else None
                 
                 if update_fields:
                     update_fields.append("updated_at = NOW()")
@@ -200,11 +225,9 @@ class UserRepository:
                     self.db.execute(update_agent_query, update_params)
             else:
                 # Create new agent profile
-                # Note: We need to generate a bubble_id if creating new agent
-                # For now, we'll use the linked_agent_profile as bubble_id
                 insert_agent_query = text("""
-                    INSERT INTO agent (bubble_id, name, contact, email, created_at, updated_at)
-                    VALUES (:agent_bubble_id, :name, :contact, :email, NOW(), NOW())
+                    INSERT INTO agent (bubble_id, name, contact, email, created_at, updated_at, created_date)
+                    VALUES (:agent_bubble_id, :name, :contact, :email, NOW(), NOW(), NOW())
                 """)
                 self.db.execute(insert_agent_query, {
                     "agent_bubble_id": agent_bubble_id,
