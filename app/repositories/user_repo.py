@@ -20,16 +20,37 @@ class UserRepository:
     ) -> Tuple[List[dict], int]:
         """Get all users with their agent profiles, sorted by specified column"""
         # Build the query
+        # Extract email from authentication JSON as fallback if agent data is NULL
+        # Authentication JSON structure: {"email": {"email": "xxx@gmail.com"}}
         query = """
             SELECT 
                 u.bubble_id as user_bubble_id,
                 u.created_date as registration_date,
                 u.linked_agent_profile,
                 u.access_level as access_level,
+                u.authentication,
                 a.bubble_id as agent_bubble_id,
-                a.name as name,
+                COALESCE(
+                    a.name,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->'email' IS NOT NULL
+                             AND u.authentication::jsonb->'email'->>'email' IS NOT NULL
+                        THEN u.authentication::jsonb->'email'->>'email'
+                        ELSE NULL
+                    END
+                ) as name,
                 a.contact as whatsapp_number,
-                a.email as email
+                COALESCE(
+                    a.email,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->'email' IS NOT NULL
+                             AND u.authentication::jsonb->'email'->>'email' IS NOT NULL
+                        THEN u.authentication::jsonb->'email'->>'email'
+                        ELSE NULL
+                    END
+                ) as email
             FROM "user" u
             LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
         """
@@ -42,31 +63,65 @@ class UserRepository:
                    OR a.contact ILIKE :search 
                    OR a.email ILIKE :search
                    OR u.bubble_id ILIKE :search
+                   OR (u.authentication IS NOT NULL 
+                       AND u.authentication::jsonb->'email'->>'email' ILIKE :search)
             """
             params['search'] = f"%{search}%"
         
         # Validate and set sort column
-        valid_sort_columns = {
-            "name": "a.name",
-            "email": "a.email",
-            "registration_date": "u.created_date",
-            "whatsapp_number": "a.contact"
-        }
+        # Use the same COALESCE logic for sorting
+        if sort_by == "name":
+            sort_column = """COALESCE(a.name,
+                CASE 
+                    WHEN u.authentication IS NOT NULL 
+                         AND u.authentication::jsonb->'email' IS NOT NULL
+                         AND u.authentication::jsonb->'email'->>'email' IS NOT NULL
+                    THEN u.authentication::jsonb->'email'->>'email'
+                    ELSE NULL
+                END
+            )"""
+        elif sort_by == "email":
+            sort_column = """COALESCE(a.email,
+                CASE 
+                    WHEN u.authentication IS NOT NULL 
+                         AND u.authentication::jsonb->'email' IS NOT NULL
+                         AND u.authentication::jsonb->'email'->>'email' IS NOT NULL
+                    THEN u.authentication::jsonb->'email'->>'email'
+                    ELSE NULL
+                END
+            )"""
+        elif sort_by == "whatsapp_number":
+            sort_column = "a.contact"
+        else:
+            sort_column = "u.created_date"
         
-        sort_column = valid_sort_columns.get(sort_by, "u.created_date")
-        sort_direction = "DESC" if sort_order.lower() == "desc" else "ASC"
+        # Safely handle sort_order (defensive programming)
+        if sort_order and sort_order.lower() == "desc":
+            sort_direction = "DESC"
+        else:
+            sort_direction = "ASC"
         
         # Handle NULL values in sorting (put NULLs last)
-        if sort_column in ["a.name", "a.email", "a.contact"]:
+        if sort_by in ["name", "email", "whatsapp_number"]:
             query += f" ORDER BY {sort_column} {sort_direction} NULLS LAST"
         else:
             query += f" ORDER BY {sort_column} {sort_direction}"
         
-        # Get total count
-        count_query = query.replace(
-            "SELECT \n                u.bubble_id as user_bubble_id,\n                u.created_date as registration_date,\n                u.linked_agent_profile,\n                u.access_level as access_level,\n                a.bubble_id as agent_bubble_id,\n                a.name as name,\n                a.contact as whatsapp_number,\n                a.email as email\n            FROM",
-            "SELECT COUNT(*) FROM"
-        ).split("ORDER BY")[0]
+        # Get total count - build count query separately
+        count_query = """
+            SELECT COUNT(*) 
+            FROM "user" u
+            LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
+        """
+        if search:
+            count_query += """
+                WHERE a.name ILIKE :search 
+                   OR a.contact ILIKE :search 
+                   OR a.email ILIKE :search
+                   OR u.bubble_id ILIKE :search
+                   OR (u.authentication IS NOT NULL 
+                       AND u.authentication::jsonb->'email'->>'email' ILIKE :search)
+            """
         
         total_result = self.db.execute(text(count_query), params)
         total = total_result.scalar() or 0
@@ -103,10 +158,29 @@ class UserRepository:
                 u.created_date as registration_date,
                 u.linked_agent_profile,
                 u.access_level as access_level,
+                u.authentication,
                 a.bubble_id as agent_bubble_id,
-                a.name as name,
+                COALESCE(
+                    a.name,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->'email' IS NOT NULL
+                             AND u.authentication::jsonb->'email'->>'email' IS NOT NULL
+                        THEN u.authentication::jsonb->'email'->>'email'
+                        ELSE NULL
+                    END
+                ) as name,
                 a.contact as whatsapp_number,
-                a.email as email
+                COALESCE(
+                    a.email,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->'email' IS NOT NULL
+                             AND u.authentication::jsonb->'email'->>'email' IS NOT NULL
+                        THEN u.authentication::jsonb->'email'->>'email'
+                        ELSE NULL
+                    END
+                ) as email
             FROM "user" u
             LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
             WHERE u.bubble_id = :user_bubble_id

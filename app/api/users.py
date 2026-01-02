@@ -33,8 +33,8 @@ def list_users(
             detail="Only admins can access user management"
         )
     
-    # Validate sort_order
-    if sort_order.lower() not in ["asc", "desc"]:
+    # Validate sort_order (handle None case)
+    if not sort_order or sort_order.lower() not in ["asc", "desc"]:
         sort_order = "desc"
     
     user_repo = UserRepository(db)
