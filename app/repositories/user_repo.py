@@ -40,7 +40,29 @@ class UserRepository:
                         ELSE NULL
                     END
                 ) as name,
-                a.contact as whatsapp_number,
+                COALESCE(
+                    a.contact,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->'whatsapp' IS NOT NULL
+                        THEN 
+                            CASE 
+                                WHEN jsonb_typeof(u.authentication::jsonb->'whatsapp') = 'object'
+                                THEN COALESCE(
+                                    u.authentication::jsonb->'whatsapp'->>'number',
+                                    u.authentication::jsonb->'whatsapp'->>'phone'
+                                )
+                                ELSE u.authentication::jsonb->>'whatsapp'
+                            END
+                        ELSE NULL
+                    END,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->>'phone' IS NOT NULL
+                        THEN u.authentication::jsonb->>'phone'
+                        ELSE NULL
+                    END
+                ) as whatsapp_number,
                 COALESCE(
                     a.email,
                     CASE 
@@ -170,7 +192,29 @@ class UserRepository:
                         ELSE NULL
                     END
                 ) as name,
-                a.contact as whatsapp_number,
+                COALESCE(
+                    a.contact,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->'whatsapp' IS NOT NULL
+                        THEN 
+                            CASE 
+                                WHEN jsonb_typeof(u.authentication::jsonb->'whatsapp') = 'object'
+                                THEN COALESCE(
+                                    u.authentication::jsonb->'whatsapp'->>'number',
+                                    u.authentication::jsonb->'whatsapp'->>'phone'
+                                )
+                                ELSE u.authentication::jsonb->>'whatsapp'
+                            END
+                        ELSE NULL
+                    END,
+                    CASE 
+                        WHEN u.authentication IS NOT NULL 
+                             AND u.authentication::jsonb->>'phone' IS NOT NULL
+                        THEN u.authentication::jsonb->>'phone'
+                        ELSE NULL
+                    END
+                ) as whatsapp_number,
                 COALESCE(
                     a.email,
                     CASE 
