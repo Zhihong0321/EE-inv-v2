@@ -28,18 +28,18 @@ def list_old_invoices(
     base_query = """
         SELECT i.*, 
                a.name as agent_name,
-               c.name as customer_name,
+               cp.name as customer_name,
                json_agg(json_build_object(
                    'bubble_id', ii.bubble_id,
                    'description', ii.description,
                    'qty', ii.qty,
                    'unit_price', ii.unit_price,
                    'amount', ii.amount
-               )) as items
+               )) FILTER (WHERE ii.bubble_id IS NOT NULL) as items
         FROM invoice i
         LEFT JOIN invoice_item ii ON i.bubble_id = ii.linked_invoice
         LEFT JOIN agent a ON i.linked_agent = a.bubble_id
-        LEFT JOIN customer c ON i.linked_customer = c.customer_id
+        LEFT JOIN customer_profile cp ON i.linked_customer = cp.bubble_id
         WHERE 1=1
     """
     
@@ -77,8 +77,8 @@ def list_old_invoices(
     
     order_clause = f" ORDER BY i.{sort_by} {'ASC' if sort_order.lower() == 'asc' else 'DESC'}"
     
-    # Final data query
-    final_query = text(base_query + where_clauses + " GROUP BY i.bubble_id, a.name, c.name" + order_clause + " LIMIT :limit OFFSET :skip")
+    # Final data query - GROUP BY i.id is necessary for PostgreSQL when using i.*
+    final_query = text(base_query + where_clauses + " GROUP BY i.id, a.name, cp.name" + order_clause + " LIMIT :limit OFFSET :skip")
     
     # Final count query
     final_count_query = text(count_query + where_clauses)
