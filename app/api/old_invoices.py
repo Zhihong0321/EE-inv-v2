@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Optional, List, Dict, Any
+from decimal import Decimal
+from datetime import datetime, date
+import traceback
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
@@ -108,7 +111,6 @@ def list_old_invoices(
             "invoices": invoices,
         }
     except Exception as e:
-        import traceback
         print(f"Error in list_old_invoices: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
