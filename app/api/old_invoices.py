@@ -24,76 +24,94 @@ def list_old_invoices(
     db: Session = Depends(get_db)
 ):
     """List old invoices with advanced filtering and sorting"""
-    # Base query for data
-    base_query = """
-        SELECT i.*, 
-               a.name as agent_name,
-               cp.name as customer_name,
-               json_agg(json_build_object(
-                   'bubble_id', ii.bubble_id,
-                   'description', ii.description,
-                   'qty', ii.qty,
-                   'unit_price', ii.unit_price,
-                   'amount', ii.amount
-               )) FILTER (WHERE ii.bubble_id IS NOT NULL) as items
-        FROM invoice i
-        LEFT JOIN invoice_item ii ON i.bubble_id = ii.linked_invoice
-        LEFT JOIN agent a ON i.linked_agent = a.bubble_id
-        LEFT JOIN customer_profile cp ON i.linked_customer = cp.bubble_id
-        WHERE 1=1
-    """
-    
-    # Base query for count
-    count_query = "SELECT COUNT(*) FROM invoice i WHERE 1=1"
-    
-    params = {"limit": limit, "skip": skip}
-    where_clauses = ""
-    
-    if search:
-        search_filter = " AND (i.description ILIKE :search OR i.invoice_id::text ILIKE :search)"
-        where_clauses += search_filter
-        params["search"] = f"%{search}%"
+    try:
+        # Base query for data
+        base_query = """
+            SELECT i.*, 
+                   a.name as agent_name,
+                   cp.name as customer_name,
+                   json_agg(json_build_object(
+                       'bubble_id', ii.bubble_id,
+                       'description', ii.description,
+                       'qty', ii.qty,
+                       'unit_price', ii.unit_price,
+                       'amount', ii.amount
+                   )) FILTER (WHERE ii.bubble_id IS NOT NULL) as items
+            FROM invoice i
+            LEFT JOIN invoice_item ii ON i.bubble_id = ii.linked_invoice
+            LEFT JOIN agent a ON i.linked_agent = a.bubble_id
+            LEFT JOIN customer_profile cp ON i.linked_customer = cp.bubble_id
+            WHERE 1=1
+        """
         
-    if agent_id:
-        where_clauses += " AND i.linked_agent = :agent_id"
-        params["agent_id"] = agent_id
+        # Base query for count
+        count_query = "SELECT COUNT(*) FROM invoice i WHERE 1=1"
         
-    if status:
-        where_clauses += " AND i.approval_status = :status"
-        params["status"] = status
+        params = {"limit": limit, "skip": skip}
+        where_clauses = ""
         
-    if date_from:
-        where_clauses += " AND i.invoice_date >= :date_from"
-        params["date_from"] = date_from
-        
-    if date_to:
-        where_clauses += " AND i.invoice_date <= :date_to"
-        params["date_to"] = date_to
+        if search:
+            search_filter = " AND (i.description ILIKE :search OR i.invoice_id::text ILIKE :search)"
+            where_clauses += search_filter
+            params["search"] = f"%{search}%"
+            
+        if agent_id:
+            where_clauses += " AND i.linked_agent = :agent_id"
+            params["agent_id"] = agent_id
+            
+        if status:
+            where_clauses += " AND i.approval_status = :status"
+            params["status"] = status
+            
+        if date_from:
+            where_clauses += " AND i.invoice_date >= :date_from"
+            params["date_from"] = date_from
+            
+        if date_to:
+            where_clauses += " AND i.invoice_date <= :date_to"
+            params["date_to"] = date_to
 
-    # Apply sorting
-    allowed_sort_cols = ["created_date", "invoice_date", "amount", "invoice_id"]
-    if sort_by not in allowed_sort_cols:
-        sort_by = "created_date"
-    
-    order_clause = f" ORDER BY i.{sort_by} {'ASC' if sort_order.lower() == 'asc' else 'DESC'}"
-    
-    # Final data query - GROUP BY i.id is necessary for PostgreSQL when using i.*
-    final_query = text(base_query + where_clauses + " GROUP BY i.id, a.name, cp.name" + order_clause + " LIMIT :limit OFFSET :skip")
-    
-    # Final count query
-    final_count_query = text(count_query + where_clauses)
-    
-    result = db.execute(final_query, params)
-    invoices = [dict(row) for row in result]
-    
-    total = db.execute(final_count_query, params).scalar()
-    
-    return {
-        "total": total,
-        "page": (skip // limit) + 1,
-        "page_size": limit,
-        "invoices": invoices,
-    }
+        # Apply sorting
+        allowed_sort_cols = ["created_date", "invoice_date", "amount", "invoice_id"]
+        if sort_by not in allowed_sort_cols:
+            sort_by = "created_date"
+        
+        order_clause = f" ORDER BY i.{sort_by} {'ASC' if sort_order.lower() == 'asc' else 'DESC'}"
+        
+        # Final data query - GROUP BY i.id is necessary for PostgreSQL when using i.*
+        final_query = text(base_query + where_clauses + " GROUP BY i.id, a.name, cp.name" + order_clause + " LIMIT :limit OFFSET :skip")
+        
+        # Final count query
+        final_count_query = text(count_query + where_clauses)
+        
+        result = db.execute(final_query, params)
+        keys = result.keys()
+        invoices = []
+        for row in result:
+            row_dict = {}
+            for i, key in enumerate(keys):
+                val = row[i]
+                if isinstance(val, Decimal):
+                    row_dict[key] = float(val)
+                elif isinstance(val, (datetime, date)):
+                    row_dict[key] = val.isoformat()
+                else:
+                    row_dict[key] = val
+            invoices.append(row_dict)
+        
+        total = db.execute(final_count_query, params).scalar()
+        
+        return {
+            "total": total,
+            "page": (skip // limit) + 1,
+            "page_size": limit,
+            "invoices": invoices,
+        }
+    except Exception as e:
+        import traceback
+        print(f"Error in list_old_invoices: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/invoices/{bubble_id}", response_model=dict)
@@ -103,31 +121,51 @@ def get_old_invoice(
     db: Session = Depends(get_db)
 ):
     """Get old invoice by ID (read-only)"""
-    query = text("""
-        SELECT i.*, 
-               json_agg(json_build_object(
-                   'bubble_id', ii.bubble_id,
-                   'description', ii.description,
-                   'qty', ii.qty,
-                   'unit_price', ii.unit_price,
-                   'amount', ii.amount
-               )) as items
-        FROM invoice i
-        LEFT JOIN invoice_item ii ON i.bubble_id = ii.linked_invoice
-        WHERE i.bubble_id = :bubble_id
-        GROUP BY i.bubble_id
-    """)
-    
-    result = db.execute(query, {"bubble_id": bubble_id})
-    invoice = result.fetchone()
-    
-    if not invoice:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invoice not found"
-        )
-    
-    return dict(invoice)
+    try:
+        query = text("""
+            SELECT i.*, 
+                   a.name as agent_name,
+                   cp.name as customer_name,
+                   json_agg(json_build_object(
+                       'bubble_id', ii.bubble_id,
+                       'description', ii.description,
+                       'qty', ii.qty,
+                       'unit_price', ii.unit_price,
+                       'amount', ii.amount
+                   )) FILTER (WHERE ii.bubble_id IS NOT NULL) as items
+            FROM invoice i
+            LEFT JOIN invoice_item ii ON i.bubble_id = ii.linked_invoice
+            LEFT JOIN agent a ON i.linked_agent = a.bubble_id
+            LEFT JOIN customer_profile cp ON i.linked_customer = cp.bubble_id
+            WHERE i.bubble_id = :bubble_id
+            GROUP BY i.id, a.name, cp.name
+        """)
+        
+        result = db.execute(query, {"bubble_id": bubble_id})
+        row = result.fetchone()
+        
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invoice not found"
+            )
+        
+        keys = result.keys()
+        row_dict = {}
+        for i, key in enumerate(keys):
+            val = row[i]
+            if isinstance(val, Decimal):
+                row_dict[key] = float(val)
+            elif isinstance(val, (datetime, date)):
+                row_dict[key] = val.isoformat()
+            else:
+                row_dict[key] = val
+        
+        return row_dict
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/agents", response_model=dict)
@@ -138,25 +176,40 @@ def list_old_agents(
     db: Session = Depends(get_db)
 ):
     """List old agents (read-only)"""
-    query = text("""
-        SELECT * FROM agent
-        ORDER BY created_date DESC
-        LIMIT :limit OFFSET :skip
-    """)
-    
-    result = db.execute(query, {"limit": limit, "skip": skip})
-    agents = [dict(row) for row in result]
-    
-    # Get total count
-    count_query = text("SELECT COUNT(*) FROM agent")
-    total = db.execute(count_query).scalar()
-    
-    return {
-        "total": total,
-        "page": (skip // limit) + 1,
-        "page_size": limit,
-        "agents": agents,
-    }
+    try:
+        query = text("""
+            SELECT * FROM agent
+            ORDER BY created_date DESC
+            LIMIT :limit OFFSET :skip
+        """)
+        
+        result = db.execute(query, {"limit": limit, "skip": skip})
+        keys = result.keys()
+        agents = []
+        for row in result:
+            row_dict = {}
+            for i, key in enumerate(keys):
+                val = row[i]
+                if isinstance(val, Decimal):
+                    row_dict[key] = float(val)
+                elif isinstance(val, (datetime, date)):
+                    row_dict[key] = val.isoformat()
+                else:
+                    row_dict[key] = val
+            agents.append(row_dict)
+        
+        # Get total count
+        count_query = text("SELECT COUNT(*) FROM agent")
+        total = db.execute(count_query).scalar()
+        
+        return {
+            "total": total,
+            "page": (skip // limit) + 1,
+            "page_size": limit,
+            "agents": agents,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/agents/{bubble_id}", response_model=dict)

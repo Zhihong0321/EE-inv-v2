@@ -158,17 +158,21 @@
             try {
                 const response = await fetch(`${API_BASE}/invoices?${params}`, { credentials: 'include' });
                 const data = await response.json();
-                renderTable(data.invoices);
-                updatePagination(data.total);
+                if (data && data.invoices) {
+                    renderTable(data.invoices);
+                    updatePagination(data.total);
+                } else {
+                    throw new Error(data.detail || 'Invalid response format');
+                }
             } catch (err) {
                 console.error(err);
-                tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-500">Failed to load invoices</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-500">Failed to load invoices: ${err.message}</td></tr>`;
             }
         }
 
         function renderTable(invoices) {
             tableBody.innerHTML = '';
-            if (invoices.length === 0) {
+            if (!invoices || invoices.length === 0) {
                 tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No invoices found matching filters</td></tr>`;
                 return;
             }
@@ -215,9 +219,11 @@
             try {
                 const response = await fetch(`${API_BASE}/agents?limit=100`, { credentials: 'include' });
                 const data = await response.json();
-                agents = data.agents;
-                agentFilter.innerHTML = '<option value="">All Agents</option>' + 
-                    agents.map(a => `<option value="${a.bubble_id}">${a.name}</option>`).join('');
+                if (data && data.agents) {
+                    agents = data.agents;
+                    agentFilter.innerHTML = '<option value="">All Agents</option>' + 
+                        agents.map(a => `<option value="${a.bubble_id}">${a.name}</option>`).join('');
+                }
             } catch (err) { console.error('Failed to load agents', err); }
         }
 
