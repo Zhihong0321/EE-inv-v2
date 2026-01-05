@@ -24,3 +24,8 @@ def generate_invoice_number() -> str:
 
 
 
+
+
+
+
+

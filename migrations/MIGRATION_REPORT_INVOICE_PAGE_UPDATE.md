@@ -292,3 +292,8 @@ The `item_type` column migration (`add_item_type_to_invoice_item.sql`) must be v
 
 
 
+
+
+
+
+
