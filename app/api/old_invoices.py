@@ -79,6 +79,9 @@ def list_old_invoices(
         if status:
             where_clauses += " AND i.approval_status = :status"
             params["status"] = status
+        else:
+            # By default, hide deleted invoices
+            where_clauses += " AND (i.approval_status IS NULL OR i.approval_status != 'Deleted')"
             
         if date_from:
             where_clauses += " AND i.invoice_date >= :date_from"
@@ -159,6 +162,67 @@ def get_old_invoice(
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/invoices/clean", response_model=dict)
+def clean_orphan_invoices(
+    dry_run: bool = Query(True),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Clean invoices that have no linked customer profile.
+    - If dry_run is True, it only counts them.
+    - If dry_run is False, it marks them as 'Deleted' in approval_status and sets approved_toberemove to True.
+    """
+    try:
+        # Query to find orphan invoices
+        orphan_query = text("""
+            SELECT i.bubble_id
+            FROM invoice i
+            LEFT JOIN customer_profile cp ON i.linked_customer = cp.bubble_id
+            WHERE cp.bubble_id IS NULL
+        """)
+        
+        result = db.execute(orphan_query).fetchall()
+        orphan_ids = [row[0] for row in result]
+        count = len(orphan_ids)
+        
+        if dry_run:
+            return {
+                "message": f"Found {count} orphan invoices (no linked customer profile). Dry run enabled, no changes made.",
+                "orphan_count": count,
+                "dry_run": True
+            }
+        
+        if count == 0:
+            return {
+                "message": "No orphan invoices found to clean.",
+                "orphan_count": 0,
+                "dry_run": False
+            }
+        
+        # Perform the update
+        update_query = text("""
+            UPDATE invoice
+            SET approval_status = 'Deleted',
+                approved_toberemove = True
+            WHERE bubble_id IN :ids
+        """)
+        
+        db.execute(update_query, {"ids": tuple(orphan_ids)})
+        db.commit()
+        
+        return {
+            "message": f"Successfully marked {count} orphan invoices as 'Deleted'.",
+            "cleaned_count": count,
+            "dry_run": False
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"Error in clean_orphan_invoices: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
