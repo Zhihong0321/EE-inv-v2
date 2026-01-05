@@ -13,12 +13,22 @@ router = APIRouter(prefix="/api/v1/legacy", tags=["Legacy Data (Read-Only)"])
 def list_old_invoices(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    search: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    sort_by: str = Query("created_date"),
+    sort_order: str = Query("desc"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List old invoices (read-only)"""
-    query = text("""
+    """List old invoices with advanced filtering and sorting"""
+    # Base query for data
+    base_query = """
         SELECT i.*, 
+               a.name as agent_name,
+               c.name as customer_name,
                json_agg(json_build_object(
                    'bubble_id', ii.bubble_id,
                    'description', ii.description,
@@ -28,17 +38,55 @@ def list_old_invoices(
                )) as items
         FROM invoice i
         LEFT JOIN invoice_item ii ON i.bubble_id = ii.linked_invoice
-        GROUP BY i.bubble_id
-        ORDER BY i.created_date DESC
-        LIMIT :limit OFFSET :skip
-    """)
+        LEFT JOIN agent a ON i.linked_agent = a.bubble_id
+        LEFT JOIN customer c ON i.linked_customer = c.customer_id
+        WHERE 1=1
+    """
     
-    result = db.execute(query, {"limit": limit, "skip": skip})
+    # Base query for count
+    count_query = "SELECT COUNT(*) FROM invoice i WHERE 1=1"
+    
+    params = {"limit": limit, "skip": skip}
+    where_clauses = ""
+    
+    if search:
+        search_filter = " AND (i.description ILIKE :search OR i.invoice_id::text ILIKE :search)"
+        where_clauses += search_filter
+        params["search"] = f"%{search}%"
+        
+    if agent_id:
+        where_clauses += " AND i.linked_agent = :agent_id"
+        params["agent_id"] = agent_id
+        
+    if status:
+        where_clauses += " AND i.approval_status = :status"
+        params["status"] = status
+        
+    if date_from:
+        where_clauses += " AND i.invoice_date >= :date_from"
+        params["date_from"] = date_from
+        
+    if date_to:
+        where_clauses += " AND i.invoice_date <= :date_to"
+        params["date_to"] = date_to
+
+    # Apply sorting
+    allowed_sort_cols = ["created_date", "invoice_date", "amount", "invoice_id"]
+    if sort_by not in allowed_sort_cols:
+        sort_by = "created_date"
+    
+    order_clause = f" ORDER BY i.{sort_by} {'ASC' if sort_order.lower() == 'asc' else 'DESC'}"
+    
+    # Final data query
+    final_query = text(base_query + where_clauses + " GROUP BY i.bubble_id, a.name, c.name" + order_clause + " LIMIT :limit OFFSET :skip")
+    
+    # Final count query
+    final_count_query = text(count_query + where_clauses)
+    
+    result = db.execute(final_query, params)
     invoices = [dict(row) for row in result]
     
-    # Get total count
-    count_query = text("SELECT COUNT(*) FROM invoice")
-    total = db.execute(count_query).scalar()
+    total = db.execute(final_count_query, params).scalar()
     
     return {
         "total": total,

@@ -1553,13 +1553,16 @@ async def admin_templates():
     """
 
 @app.get("/admin/invoices", response_class=HTMLResponse)
-async def admin_invoices():
-    """Placeholder for Invoice Management"""
-    return """
-    <!DOCTYPE html>
-    <html><head><title>Invoices</title><meta http-equiv="refresh" content="0; url=/admin/" /></head>
-    <body><script>alert("Invoice management coming soon!"); window.location.href="/admin/";</script></body></html>
-    """
+async def admin_invoices(request: Request):
+    """Invoice Management Dashboard"""
+    from fastapi.templating import Jinja2Templates
+    import os
+    
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    template_dir = os.path.join(base_dir, "app", "templates")
+    templates = Jinja2Templates(directory=template_dir)
+    
+    return templates.TemplateResponse("invoice_dashboard.html", {"request": request})
 
 @app.get("/admin/customers", response_class=HTMLResponse)
 async def admin_customers():

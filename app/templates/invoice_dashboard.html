@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EE Invoicing - Invoice Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .invoice-row:hover { background-color: #f8fafc; cursor: pointer; }
+        .status-badge { @apply px-2 py-1 rounded-full text-xs font-medium; }
+        .status-approved { @apply bg-green-100 text-green-800; }
+        .status-draft { @apply bg-gray-100 text-gray-800; }
+        .status-pending { @apply bg-yellow-100 text-yellow-800; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <a href="/admin/" class="flex items-center">
+                        <i class="fas fa-arrow-left text-gray-400 hover:text-indigo-600 mr-4 transition-colors"></i>
+                        <i class="fas fa-file-invoice text-indigo-600 text-2xl mr-3"></i>
+                        <h1 class="text-xl font-bold text-gray-900">Invoice Management</h1>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.open('/demo/generate-invoice', '_blank')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
+                        <i class="fas fa-plus mr-2"></i>New Invoice
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Filter Bar -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" id="search-input" placeholder="Search ID or description..." 
+                        class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all">
+                </div>
+                
+                <select id="agent-filter" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white">
+                    <option value="">All Agents</option>
+                    <!-- Agents will be loaded here -->
+                </select>
+
+                <select id="status-filter" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white">
+                    <option value="">All Statuses</option>
+                    <option value="Approved">Approved</option>
+                    <option value="No Approval Needed">No Approval Needed</option>
+                    <option value="draft">Draft</option>
+                    <option value="Pending">Pending</option>
+                </select>
+
+                <div class="flex space-x-2">
+                    <input type="date" id="date-from" class="w-1/2 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none">
+                    <input type="date" id="date-to" class="w-1/2 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none">
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoice Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600" onclick="handleSort('invoice_id')">
+                                ID <span id="sort-icon-invoice_id" class="ml-1 text-gray-300"><i class="fas fa-sort"></i></span>
+                            </th>
+                            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+                            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Agent</th>
+                            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600" onclick="handleSort('invoice_date')">
+                                Date <span id="sort-icon-invoice_date" class="ml-1 text-gray-300"><i class="fas fa-sort"></i></span>
+                            </th>
+                            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600" onclick="handleSort('amount')">
+                                Amount <span id="sort-icon-amount" class="ml-1 text-gray-300"><i class="fas fa-sort"></i></span>
+                            </th>
+                            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoice-table-body" class="divide-y divide-gray-50">
+                        <!-- Invoices will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <div class="text-sm text-gray-500" id="pagination-info">Showing 0 to 0 of 0 entries</div>
+                <div class="flex space-x-2">
+                    <button id="prev-btn" class="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors" disabled>Previous</button>
+                    <button id="next-btn" class="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Detail Modal -->
+    <div id="invoice-modal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <h2 id="modal-title" class="text-xl font-bold text-gray-900">Invoice Details</h2>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div id="modal-content" class="p-8 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <!-- Content injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1/legacy';
+        let currentPage = 1;
+        let limit = 20;
+        let sortBy = 'created_date';
+        let sortOrder = 'desc';
+        let agents = [];
+
+        // UI Elements
+        const tableBody = document.getElementById('invoice-table-body');
+        const searchInput = document.getElementById('search-input');
+        const agentFilter = document.getElementById('agent-filter');
+        const statusFilter = document.getElementById('status-filter');
+        const dateFrom = document.getElementById('date-from');
+        const dateTo = document.getElementById('date-to');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const paginationInfo = document.getElementById('pagination-info');
+
+        async function fetchInvoices() {
+            tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center"><i class="fas fa-spinner fa-spin text-3xl text-indigo-500"></i></td></tr>`;
+            
+            const params = new URLSearchParams({
+                skip: (currentPage - 1) * limit,
+                limit: limit,
+                sort_by: sortBy,
+                sort_order: sortOrder
+            });
+
+            if (searchInput.value) params.append('search', searchInput.value);
+            if (agentFilter.value) params.append('agent_id', agentFilter.value);
+            if (statusFilter.value) params.append('status', statusFilter.value);
+            if (dateFrom.value) params.append('date_from', dateFrom.value);
+            if (dateTo.value) params.append('date_to', dateTo.value);
+
+            try {
+                const response = await fetch(`${API_BASE}/invoices?${params}`, { credentials: 'include' });
+                const data = await response.json();
+                renderTable(data.invoices);
+                updatePagination(data.total);
+            } catch (err) {
+                console.error(err);
+                tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-500">Failed to load invoices</td></tr>`;
+            }
+        }
+
+        function renderTable(invoices) {
+            tableBody.innerHTML = '';
+            if (invoices.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No invoices found matching filters</td></tr>`;
+                return;
+            }
+
+            invoices.forEach(inv => {
+                const row = document.createElement('tr');
+                row.className = 'invoice-row border-b border-gray-50 transition-colors';
+                row.onclick = () => showInvoiceDetails(inv.bubble_id);
+                
+                const statusClass = inv.approval_status === 'Approved' ? 'bg-green-100 text-green-800' : 
+                                   inv.approval_status === 'draft' ? 'bg-gray-100 text-gray-800' : 
+                                   'bg-yellow-100 text-yellow-800';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-mono text-sm text-gray-600">#${inv.invoice_id || 'N/A'}</td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-semibold text-gray-900">${inv.customer_name || 'Unknown'}</div>
+                        <div class="text-xs text-gray-500">${inv.linked_customer || ''}</div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${inv.agent_name || 'Internal'}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : 'N/A'}</td>
+                    <td class="px-6 py-4 font-bold text-gray-900">RM ${inv.amount?.toLocaleString() || '0.00'}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statusClass}">${inv.approval_status || 'Unknown'}</span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button class="text-indigo-600 hover:text-indigo-900 p-2"><i class="fas fa-eye"></i></button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function updatePagination(total) {
+            const start = total === 0 ? 0 : (currentPage - 1) * limit + 1;
+            const end = Math.min(currentPage * limit, total);
+            paginationInfo.textContent = `Showing ${start} to ${end} of ${total} entries`;
+            
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = end >= total;
+        }
+
+        async function fetchAgents() {
+            try {
+                const response = await fetch(`${API_BASE}/agents?limit=100`, { credentials: 'include' });
+                const data = await response.json();
+                agents = data.agents;
+                agentFilter.innerHTML = '<option value="">All Agents</option>' + 
+                    agents.map(a => `<option value="${a.bubble_id}">${a.name}</option>`).join('');
+            } catch (err) { console.error('Failed to load agents', err); }
+        }
+
+        function handleSort(col) {
+            if (sortBy === col) {
+                sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortBy = col;
+                sortOrder = 'desc';
+            }
+            // Update sort icons
+            ['invoice_id', 'invoice_date', 'amount'].forEach(c => {
+                const icon = document.getElementById(`sort-icon-${c}`);
+                if (c === sortBy) {
+                    icon.innerHTML = `<i class="fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'} text-indigo-600"></i>`;
+                } else {
+                    icon.innerHTML = `<i class="fas fa-sort text-gray-300"></i>`;
+                }
+            });
+            fetchInvoices();
+        }
+
+        async function showInvoiceDetails(bubbleId) {
+            const modal = document.getElementById('invoice-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.remove('hidden');
+            content.innerHTML = `<div class="flex justify-center py-12"><i class="fas fa-spinner fa-spin text-4xl text-indigo-500"></i></div>`;
+            
+            try {
+                const response = await fetch(`${API_BASE}/invoices/${bubbleId}`, { credentials: 'include' });
+                const inv = await response.json();
+                
+                content.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Customer Info</h3>
+                            <div class="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                                <p class="text-xl font-bold text-gray-900 mb-1">${inv.customer_name || 'N/A'}</p>
+                                <p class="text-gray-500 text-sm mb-4">${inv.linked_customer || ''}</p>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div><p class="text-gray-400">Type</p><p class="font-medium">${inv.type || 'N/A'}</p></div>
+                                    <div><p class="text-gray-400">Agent</p><p class="font-medium">${inv.agent_name || 'N/A'}</p></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Financial Overview</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center py-3 border-b border-gray-50">
+                                    <span class="text-gray-600">Total Amount</span>
+                                    <span class="text-2xl font-bold text-gray-900">RM ${inv.amount?.toLocaleString() || '0.00'}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2">
+                                    <span class="text-gray-600">1st Payment (5%)</span>
+                                    <span class="font-semibold text-gray-900">${inv['1st_payment'] ? 'RM ' + (inv.amount * 0.05).toLocaleString() : 'Not Paid'}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2">
+                                    <span class="text-gray-600">2nd Payment (65%)</span>
+                                    <span class="font-semibold text-gray-900">${inv['2nd_payment'] ? 'RM ' + (inv.amount * 0.65).toLocaleString() : 'Not Paid'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-12">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Line Items</h3>
+                        <div class="border border-gray-100 rounded-xl overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Description</th>
+                                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Qty</th>
+                                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50">
+                                    ${(inv.items || []).filter(i => i && i.description).map(item => `
+                                        <tr>
+                                            <td class="px-6 py-4 text-sm text-gray-900">${item.description}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${item.qty}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-900 text-right font-medium">RM ${item.amount?.toLocaleString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Technical Details</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-500">Panel Quantity</span><span class="font-medium">${inv.panel_qty || 'N/A'}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Panel Rating</span><span class="font-medium">${inv.panel_rating || 'N/A'}W</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Est. Savings</span><span class="font-medium">RM ${inv.estimated_saving?.toLocaleString() || '0.00'}/mo</span></div>
+                            </div>
+                        </div>
+                        <div class="flex items-end justify-end space-x-4">
+                            <button class="px-6 py-3 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Download PDF</button>
+                            <button class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">Send to Client</button>
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                content.innerHTML = `<p class="text-center text-red-500 py-12">Error loading invoice data</p>`;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('invoice-modal').classList.add('hidden');
+        }
+
+        // Event Listeners
+        searchInput.addEventListener('input', () => { currentPage = 1; fetchInvoices(); });
+        agentFilter.addEventListener('change', () => { currentPage = 1; fetchInvoices(); });
+        statusFilter.addEventListener('change', () => { currentPage = 1; fetchInvoices(); });
+        dateFrom.addEventListener('change', () => { currentPage = 1; fetchInvoices(); });
+        dateTo.addEventListener('change', () => { currentPage = 1; fetchInvoices(); });
+        prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; fetchInvoices(); } };
+        nextBtn.onclick = () => { currentPage++; fetchInvoices(); };
+
+        // Initial Load
+        fetchAgents();
+        fetchInvoices();
+    </script>
+</body>
+</html>
+
