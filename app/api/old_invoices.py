@@ -226,6 +226,61 @@ def clean_orphan_invoices(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/invoices/fix-dates", response_model=dict)
+def fix_missing_invoice_dates(
+    dry_run: bool = Query(True),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Auto-fix missing invoice dates.
+    For invoices where invoice_date is NULL, set it to the created_date.
+    """
+    try:
+        # Query to find invoices with missing dates
+        check_query = text("""
+            SELECT count(*) 
+            FROM invoice 
+            WHERE invoice_date IS NULL
+        """)
+        count = db.execute(check_query).scalar()
+        
+        if dry_run:
+            return {
+                "message": f"Found {count} invoices with missing invoice dates. Dry run enabled, no changes made.",
+                "missing_count": count,
+                "dry_run": True
+            }
+        
+        if count == 0:
+            return {
+                "message": "No invoices with missing dates found.",
+                "missing_count": 0,
+                "dry_run": False
+            }
+        
+        # Perform the update: set invoice_date to created_date where invoice_date is NULL
+        update_query = text("""
+            UPDATE invoice
+            SET invoice_date = created_date
+            WHERE invoice_date IS NULL
+        """)
+        
+        db.execute(update_query)
+        db.commit()
+        
+        return {
+            "message": f"Successfully updated {count} invoices with missing dates using their created_date.",
+            "fixed_count": count,
+            "dry_run": False
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"Error in fix_missing_invoice_dates: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/agents", response_model=dict)
 def list_old_agents(
     skip: int = Query(0, ge=0),

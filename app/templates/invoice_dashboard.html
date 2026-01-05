@@ -29,6 +29,9 @@
                     </a>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <button onclick="confirmFixDates()" class="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 border border-blue-200 transition-colors">
+                        <i class="fas fa-calendar-check mr-2"></i>Fix Missing Dates
+                    </button>
                     <button onclick="confirmClean()" class="bg-amber-50 text-amber-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-100 border border-amber-200 transition-colors">
                         <i class="fas fa-broom mr-2"></i>Clean Orphan Invoices
                     </button>
@@ -142,6 +145,35 @@
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const paginationInfo = document.getElementById('pagination-info');
+
+        async function confirmFixDates() {
+            try {
+                // First check how many
+                const checkRes = await fetch(`${API_BASE}/invoices/fix-dates?dry_run=true`, { 
+                    method: 'POST',
+                    credentials: 'include' 
+                });
+                const checkData = await checkRes.json();
+                
+                if (checkData.missing_count === 0) {
+                    alert('No invoices with missing dates found. All set!');
+                    return;
+                }
+
+                if (confirm(`Found ${checkData.missing_count} invoices with missing dates. Set their invoice date to their created date?`)) {
+                    const fixRes = await fetch(`${API_BASE}/invoices/fix-dates?dry_run=false`, { 
+                        method: 'POST',
+                        credentials: 'include' 
+                    });
+                    const fixData = await fixRes.json();
+                    alert(fixData.message);
+                    fetchInvoices();
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Failed to fix dates: ' + err.message);
+            }
+        }
 
         async function confirmClean() {
             try {
