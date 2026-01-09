@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -457,7 +458,12 @@ class InvoiceRepository:
         query = self.db.query(InvoiceNew)
 
         if status:
-            query = query.filter(InvoiceNew.status == status)
+            if status.lower() == 'all':
+                pass # Include all statuses
+            elif status == 'No Status' or status == 'Unknown':
+                query = query.filter(or_(InvoiceNew.status == None, InvoiceNew.status == ''))
+            else:
+                query = query.filter(InvoiceNew.status == status)
         if customer_id:
             query = query.filter(InvoiceNew.customer_id == customer_id)
         if agent_id:

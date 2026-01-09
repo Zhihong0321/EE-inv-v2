@@ -77,11 +77,18 @@ def list_old_invoices(
             params["agent_id"] = agent_id
             
         if status:
-            where_clauses += " AND i.approval_status = :status"
-            params["status"] = status
+            if status.lower() == 'all':
+                # Show everything, including Deleted
+                pass
+            elif status == 'No Status' or status == 'Unknown':
+                where_clauses += " AND (i.approval_status IS NULL OR i.approval_status = '')"
+            else:
+                where_clauses += " AND i.approval_status = :status"
+                params["status"] = status
         else:
-            # By default, hide deleted invoices
-            where_clauses += " AND (i.approval_status IS NULL OR i.approval_status != 'Deleted')"
+            # By default, hide deleted invoices (Active Statuses only)
+            # We explicitly include NULL or empty status to ensure "no status" invoices are shown
+            where_clauses += " AND (i.approval_status IS NULL OR i.approval_status = '' OR i.approval_status != 'Deleted')"
             
         if date_from:
             where_clauses += " AND i.invoice_date >= :date_from"
