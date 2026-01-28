@@ -159,17 +159,37 @@
                     >{{ customer_address or '' }}</textarea>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-semibold mb-2 text-gray-900">Discount Given</label>
-                    <input 
-                        type="text" 
-                        name="discount_given" 
-                        id="discountGiven"
-                        value="{{ discount_given or '' }}"
-                        class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
-                        placeholder="e.g., '500 10%' for RM500 fixed + 10% discount"
-                    >
-                    <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Discount Given</label>
+                        <input 
+                            type="text" 
+                            name="discount_given" 
+                            id="discountGiven"
+                            value="{{ discount_given or '' }}"
+                            class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                            placeholder="e.g., '500 10%' for RM500 fixed + 10% discount"
+                        >
+                        <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Voucher Code</label>
+                        <div class="flex gap-2">
+                            <input 
+                                type="text" 
+                                name="voucher_code" 
+                                id="voucherCode"
+                                value="{{ voucher_code or '' }}"
+                                class="flex-1 border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none uppercase"
+                                placeholder="ENTER VOUCHER CODE"
+                            >
+                            <button type="button" id="validateVoucherBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold transition-colors">
+                                Validate
+                            </button>
+                        </div>
+                        <p id="voucherStatus" class="text-xs mt-1"></p>
+                    </div>
                 </div>
 
                 <!-- SST Toggle -->
@@ -244,6 +264,7 @@
 
         const BANKS = Object.keys(EPP_RATES);
         let paymentMethodCounter = 0;
+        let currentVoucherData = null;
 
         // Parse discount string (same logic as backend)
         function parseDiscount(discountStr) {
@@ -408,13 +429,14 @@
             const amountType = amountTypeSelect?.value;
             const amountValue = parseFloat(amountValueInput?.value || 0);
             
-            // Calculate package price after discount
+            // Calculate package price after discount and voucher
             const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
             const discountInput = document.getElementById('discountGiven')?.value || '';
             const discount = parseDiscount(discountInput);
             let subtotalAfterDiscount = packagePrice;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+            if (currentVoucherData) subtotalAfterDiscount -= currentVoucherData.discount_amount;
             if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
             
             // Calculate EPP amount
@@ -451,6 +473,7 @@
             let subtotalAfterDiscount = packagePrice;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+            if (currentVoucherData) subtotalAfterDiscount -= currentVoucherData.discount_amount;
             if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
             
             const rows = document.querySelectorAll('.payment-method-row');
@@ -666,6 +689,21 @@
                 subtotal -= percentAmount;
             }
             
+            // Add voucher item if exists
+            if (currentVoucherData) {
+                const voucherItem = document.createElement('div');
+                voucherItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+                voucherItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-purple-600">Voucher (${currentVoucherData.voucher_code})</div>
+                        <div class="text-sm text-gray-500">${currentVoucherData.title}</div>
+                    </div>
+                    <div class="font-semibold text-purple-600">-RM ${currentVoucherData.discount_amount.toFixed(2)}</div>
+                `;
+                itemsList.appendChild(voucherItem);
+                subtotal -= currentVoucherData.discount_amount;
+            }
+
             // Ensure subtotal doesn't go negative
             if (subtotal < 0) subtotal = 0;
             
@@ -747,6 +785,60 @@
             if (addBtn) {
                 addBtn.addEventListener('click', addPaymentMethodRow);
             }
+
+            // Voucher Validation Logic
+            const voucherBtn = document.getElementById('validateVoucherBtn');
+            const voucherInput = document.getElementById('voucherCode');
+            const voucherStatus = document.getElementById('voucherStatus');
+
+            if (voucherBtn && voucherInput) {
+                voucherBtn.addEventListener('click', async () => {
+                    const code = voucherInput.value.trim().toUpperCase();
+                    const packageId = document.getElementsByName('package_id')[0]?.value;
+
+                    if (!code) {
+                        currentVoucherData = null;
+                        voucherStatus.textContent = "";
+                        updateInvoicePreview();
+                        return;
+                    }
+
+                    voucherBtn.disabled = true;
+                    voucherBtn.textContent = "...";
+                    voucherStatus.textContent = "Validating...";
+                    voucherStatus.className = "text-xs mt-1 text-gray-500";
+
+                    try {
+                        const response = await fetch(`/api/v1/invoices/vouchers/validate/${code}?package_id=${packageId}`);
+                        if (response.ok) {
+                            currentVoucherData = await response.json();
+                            voucherStatus.textContent = `✅ Applied: RM ${currentVoucherData.discount_amount.toFixed(2)} off`;
+                            voucherStatus.className = "text-xs mt-1 text-green-600 font-semibold";
+                        } else {
+                            const err = await response.json();
+                            currentVoucherData = null;
+                            voucherStatus.textContent = `❌ ${err.detail || "Invalid voucher"}`;
+                            voucherStatus.className = "text-xs mt-1 text-red-600 font-semibold";
+                        }
+                    } catch (e) {
+                        currentVoucherData = null;
+                        voucherStatus.textContent = "❌ Connection error";
+                        voucherStatus.className = "text-xs mt-1 text-red-600 font-semibold";
+                    } finally {
+                        voucherBtn.disabled = false;
+                        voucherBtn.textContent = "Validate";
+                        updateInvoicePreview();
+                    }
+                });
+                
+                // Also validate on enter
+                voucherInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        voucherBtn.click();
+                    }
+                });
+            }
         });
 
         // Handle form submission
@@ -772,6 +864,7 @@
                 customer_phone: data.customer_phone || null,
                 customer_address: data.customer_address || null,
                 discount_given: data.discount_given || null,
+                voucher_code: currentVoucherData ? currentVoucherData.voucher_code : null,
                 apply_sst: document.getElementById('applySST')?.checked || false,
             };
             

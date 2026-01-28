@@ -121,6 +121,38 @@ def create_invoice(
     return invoice
 
 
+@router.get("/vouchers/validate/{code}")
+def validate_voucher(
+    code: str, 
+    package_id: str, 
+    db: Session = Depends(get_db)
+):
+    """Validate a voucher code for a specific package"""
+    from app.models.voucher import Voucher
+    from app.models.package import Package
+    
+    voucher = db.query(Voucher).filter(Voucher.voucher_code == code, Voucher.active == True).first()
+    if not voucher:
+        raise HTTPException(status_code=404, detail="Invalid or inactive voucher code")
+    
+    package = db.query(Package).filter(Package.bubble_id == package_id).first()
+    if not package:
+        raise HTTPException(status_code=404, detail="Package not found")
+        
+    discount_amount = Decimal(0)
+    if voucher.discount_amount:
+        discount_amount = voucher.discount_amount
+    elif voucher.discount_percent:
+        discount_amount = package.price * (Decimal(voucher.discount_percent) / Decimal(100))
+        
+    return {
+        "voucher_code": voucher.voucher_code,
+        "discount_amount": float(discount_amount),
+        "discount_percent": voucher.discount_percent,
+        "title": voucher.title or voucher.voucher_code
+    }
+
+
 @router.post("/on-the-fly", response_model=dict)
 async def create_invoice_on_the_fly(
     request_data: InvoiceOnTheFlyRequest,
